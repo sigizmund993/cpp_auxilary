@@ -1,29 +1,35 @@
-//Модуль вспомогательной математики и утилит
-#include <iostream>
-#include <cmath>
-class Point{
-    public:
-    float x,y;
-    Point(float x, float y): x(x),y(y){}
-    Point operator+(const Point& other) const{
-        return Point(x+other.x,y+other.y);
-    }
-    Point operator-(const Point& other) const{
-        return Point(x-other.x,y-other.y);
-    }
-    double mag(){
-        return sqrt(x*x+y*y);
-    }
-    void print(){
-        std::cout << x << " " << y << std::endl;
+struct Vec2 {
+    float x, y;
+
+    __host__ __device__ Vec2() : x(0), y(0) {}
+    __host__ __device__ Vec2(float x_, float y_) : x(x_), y(y_) {}
+
+    __host__ __device__ Vec2 operator+(const Vec2& b) const {
+        return Vec2(x + b.x, y + b.y);
     }
 
+    __host__ __device__ Vec2 operator-(const Vec2& b) const {
+        return Vec2(x - b.x, y - b.y);
+    }
+
+    __host__ __device__ Vec2 operator*(float scalar) const {
+        return Vec2(x * scalar, y * scalar);
+    }
+
+    __host__ __device__ float dot(const Vec2& b) const {
+        return x * b.x + y * b.y;
+    }
+
+    __host__ __device__ float mag() const {
+        return sqrtf(x * x + y * y);
+    }
+
+    __host__ __device__ Vec2 unity() const {
+        float len = length();
+        return len > 0.0f ? Vec2(x / len, y / len) : Vec2(0.0f, 0.0f);
+    }
+
+    __host__ __device__ float arg() const {
+        return atan2f(y, x);
+    }
 };
-int main(){
-    Point p1(10,10);
-    Point p2(2,8);
-    Point p3 = p1 - p2;
-    
-    std::cout << p3.mag() << std::endl;
-    return 0;
-}
