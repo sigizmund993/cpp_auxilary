@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <math.h>
-
+#define GRID_SIZE 22
 struct Point {
     float x, y;
     __host__ __device__ Point() : x(0), y(0) {}
@@ -81,12 +81,11 @@ extern "C" __global__ void find_global_min(float *block_mins, int *block_locs, f
 
 extern "C" __global__ void find_best_pass_point(Point *field, float *field_size, float *out, int N) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-
     // Выходной массив для каждого потока
-    float globVals[8438];
-    int globX[8438];
-    int globY[8438];
-    for(int i = 0;i<8438;i++){
+    float globVals[GRID_SIZE];
+    int globX[GRID_SIZE];
+    int globY[GRID_SIZE];
+    for(int i = 0;i<GRID_SIZE;i++){
         globVals[i] = 1e10f;
     }
     __shared__ float localVals[256];  // 256 - размер блока
@@ -137,7 +136,7 @@ extern "C" __global__ void find_best_pass_point(Point *field, float *field_size,
     {
         float minV = 1e10f;
         int minX = -1, minY = -1;
-        for (int i = 0; i < 8438; i++) {
+        for (int i = 0; i < GRID_SIZE; i++) {
             if (globVals[i] < minV) {
                 minV = globVals[i];
                 minX = globX[i];

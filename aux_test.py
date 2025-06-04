@@ -5,7 +5,7 @@ import numpy as np
 from time import time
 FIELD_DX = 4500
 FIELD_DY = 3000
-grid_dens = 10
+grid_dens = 100
 start_time = time()
 # Читаем обновленный CUDA-код
 with open("aux.cu", "r") as f:

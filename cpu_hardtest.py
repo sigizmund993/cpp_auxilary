@@ -3,7 +3,7 @@ from time import time
 start_time = time()
 FIELD_DX = 4500
 FIELD_DY = 3000
-grid_dens = 5
+grid_dens = 100
 a_points = np.array([(19.0, 22.0), (30.0, 4.0), (0.0, 10.0), (10.0, 10.0), (20.0, 20.0)], dtype=np.float32)
 min = 10000000
 minX = -1
