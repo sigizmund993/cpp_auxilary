@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <math.h>
-#define GRID_SIZE 22
+#define GRID_SIZE 2110
 #define PI 3.14159265358979323846f
 #define ROBOT_R 100.0f
 #define OBSTACLE_ANGLE (PI / 5)
@@ -8,6 +8,7 @@
 #define DIST_TO_ENEMY 1500
 #define SHOOT_ANGLE (PI / 8)
 #define DANGER_ZONE_DIST 400
+#define MAX_ENEMIES_COUNT 6
 struct Point {
     float x, y;
     __host__ __device__ Point() : x(0), y(0) {}
@@ -272,7 +273,7 @@ __device__ float globVals[GRID_SIZE];
 __device__ int globX[GRID_SIZE];
 __device__ int globY[GRID_SIZE];
 //extern "C" __global__ void find_best_pass_point(float *field_info,Point *enemies, int en_count, Point kick_point,int grid_dens, float *out, int N)
-extern "C" __global__ void find_best_pass_point(float *field_info, int grid_dens, float *out, int N)
+extern "C" __global__ void find_best_pass_point(float *field_info, Point *field_poses,int en_count, int grid_dens, float *out, int N)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     for(int i = 0;i<GRID_SIZE;i++){
@@ -283,21 +284,24 @@ extern "C" __global__ void find_best_pass_point(float *field_info, int grid_dens
     __shared__ int localY[256];
     float curVal = 1e10f;
     int curX = -1, curY = -1;
-    // Field fld = Field(
-    //     field_info[0],
-    //     field_info[1],
-    //     field_info[2],
-    //     field_info[3],
-    //     field_info[4],
-    //     field_info[5]
-    // );
+    Field fld = Field(
+        field_info[0],
+        field_info[1],
+        field_info[2],
+        field_info[3],
+        field_info[4],
+        field_info[5]
+    );
+    Point enemies[MAX_ENEMIES_COUNT];
+    for(int i = 0;i<MAX_ENEMIES_COUNT;i++)
+        enemies[i] = field_poses[i+1];
     if(idx < N)
     {
         Point cur_pos(
             grid_dens * (idx % int(field_info[0]*2 / grid_dens)),
             grid_dens * int(idx / int(field_info[0]*2 / grid_dens))//field_info[0]*2 - размер поля по x
         );
-        curVal = -idx+10;//estimate_point(fld,cur_pos,kick_point,enemies,en_count);
+        curVal = estimate_point(fld,cur_pos,field_poses[0],enemies,en_count);
         curX = cur_pos.x;
         curY = cur_pos.y;
     }
@@ -331,7 +335,8 @@ extern "C" __global__ void find_best_pass_point(float *field_info, int grid_dens
                 minY = globY[i];
             }
         }
-        // printf("end min Val: %f at %i, %i\n",minV,minX,minY);
+        printf("end min Val: %f at %i, %i\n",minV,minX,minY);
+        // printf("%f",estimate_point(fld,Point(8990,30),field_poses[0],enemies,en_count));
         out[0] = minX;
         out[1] = minY;
     }
