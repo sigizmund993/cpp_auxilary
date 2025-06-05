@@ -1,10 +1,10 @@
 #define PI 3.14159265358979323846f
 #define ROBOT_R 100.0f
-#define OBSTACLE_ANGLE (3.1415926535897932386f / 5f)
-#define GOAL_VIEW_ANGLE (3.1415926535897932386f / 4f)
+#define OBSTACLE_ANGLE (PI / 5)
+#define GOAL_VIEW_ANGLE (PI / 4)
 #define DIST_TO_ENEMY 1500
-#define SHOOT_ANGLE (3.1415926535897932386f / 8f)
-
+#define SHOOT_ANGLE (PI / 8)
+#define DANGER_ZONE_DIST 400
 struct Point {
     float x, y;
 
@@ -22,7 +22,9 @@ struct Point {
     __host__ __device__ Point operator*(float scalar) {
         return Point(x * scalar, y * scalar);
     }
-
+    __host__ __device__ Point operator/(float scalar) {
+        return Point(x / scalar, y / scalar);
+    }
     __host__ __device__
     bool operator==(Point other) {
         return x == other.x && y == other.y;
@@ -207,7 +209,7 @@ __host__ __device__ float estimate_pass_point(Point *enemies, int en_n, Point fr
                     ang *= -1;
         }
         else {
-            ang = 2 * asinf(((enemies[i], to) / 2) / frm_enemy) - asinf(ROBOT_R / frm_enemy);
+            ang = 2 * asinf(((enemies[i] - to).mag() / 2) / frm_enemy) - asinf(ROBOT_R / frm_enemy);
         }
 
         if (ang < OBSTACLE_ANGLE) {
@@ -218,11 +220,11 @@ __host__ __device__ float estimate_pass_point(Point *enemies, int en_n, Point fr
     return lerp;
 }
 
-__host__ __device__ float estimate_goal_view(Point& point, Field& fld) {
+__host__ __device__ float estimate_goal_view(Point point, Field fld) {
     return fminf(fabsf(get_angle_between_points(fld.enemy_goal[0], point, fld.enemy_goal[1])), 1);
 }
 
-__host__ __device__ float estimate_dist_to_boarder(Point& point, Field& fld) {
+__host__ __device__ float estimate_dist_to_boarder(Point point, Field fld) {
     float dist_to_goal_zone = (point - nearest_point_on_poly(point, fld.enemy_hull, 4)).mag();
     if (is_point_inside_poly(point, fld.enemy_goal, 4)) {
         dist_to_goal_zone *= -1;
@@ -235,17 +237,18 @@ __host__ __device__ float estimate_dist_to_boarder(Point& point, Field& fld) {
     return fmaxf(1 - dist_to_danger_zone / DANGER_ZONE_DIST, 0);
 }
 
-__host__ __device__ float estimate_dist_to_enemy(Point& point, Point *active_enemies, int& en_n) {
-    """Gives a score for a point based on its distance to the non-playing area"""
+__host__ __device__ float estimate_dist_to_enemy(Point point, Point *active_enemies, int en_n) {
+
     if (en_n == 0) {
         return 0;
     }
     return fmaxf(1 - (find_nearest_robot(point, active_enemies, en_n) - point).mag() / DIST_TO_ENEMY, 0);
 }
 
-__host__ __device__ float estimate_shoot(Point point, Field fld, Point *enemies, int& en_n) {
-    float lerp = 0f;
+__host__ __device__ float estimate_shoot(Point point, Field fld, Point *enemies, int en_n) {
+    float lerp = 0.0f;
     float ang, ang1, ang2;
+    float frm_enemy;
     for (int i = 0; i < en_n; i++) {
         frm_enemy = (point - enemies[i]).mag();
         if (frm_enemy > ROBOT_R) {
@@ -254,7 +257,7 @@ __host__ __device__ float estimate_shoot(Point point, Field fld, Point *enemies,
 
             ang = fminf(fabsf(ang1), fabsf(ang2));
 
-            if ang < SHOOT_ANGLE {
+            if (ang < SHOOT_ANGLE) {
                 lerp += powf(fabsf((SHOOT_ANGLE - ang) / SHOOT_ANGLE), 1.5);
             }
         }
@@ -262,8 +265,8 @@ __host__ __device__ float estimate_shoot(Point point, Field fld, Point *enemies,
     return lerp;
 }
 
-__host__ __device__ float estimate_point(Field& fld, Point& point, Point& kick_point, Point *enemies, int& en_n) {
+__host__ __device__ float estimate_point(Field fld, Point point, Point kick_point, Point *enemies, int en_n) {
     return estimate_goal_view(point, fld) - estimate_pass_point(enemies, en_n, kick_point, point) - estimate_dist_to_boarder(point, fld) - 
-    estimate_shoot(point, fld, enemies, en_n) - estimate_dist_to_enemy(point, fld);
+    estimate_shoot(point, fld, enemies, en_n) - estimate_dist_to_enemy(point, enemies, en_n);
 
 }
