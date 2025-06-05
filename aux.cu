@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <math.h>
-#define GRID_SIZE 2110
+#define GRID_SIZE 22
 #define PI 3.14159265358979323846f
 #define ROBOT_R 100.0f
 #define OBSTACLE_ANGLE (PI / 5)
@@ -19,8 +19,7 @@ struct Point {
     }
     __host__ __device__ Point operator-(Point b) {
         return Point(x - b.x, y - b.y);
-    __host__ __device__ float dist(Point p1, Point p2) {
-    return (p2 - p1).mag();
+    }
     __host__ __device__ Point operator*(float scalar) {
         return Point(x * scalar, y * scalar);
     }
@@ -269,58 +268,43 @@ __host__ __device__ float estimate_point(Field fld, Point point, Point kick_poin
     estimate_shoot(point, fld, enemies, en_n) - estimate_dist_to_enemy(point, enemies, en_n);
 
 }
-
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
 __device__ float globVals[GRID_SIZE];
 __device__ int globX[GRID_SIZE];
 __device__ int globY[GRID_SIZE];
-extern "C" __global__ void find_best_pass_point(Point *field, float *field_size, float *out, int N) {
+//extern "C" __global__ void find_best_pass_point(float *field_info,Point *enemies, int en_count, Point kick_point,int grid_dens, float *out, int N)
+extern "C" __global__ void find_best_pass_point(float *field_info, int grid_dens, float *out, int N)
+{
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    // Выходной массив для каждого потока
-    
     for(int i = 0;i<GRID_SIZE;i++){
         globVals[i] = 1e10f;
     }
-    __shared__ float localVals[256];  // 256 - размер блока
+    __shared__ float localVals[256];
     __shared__ int localX[256];
     __shared__ int localY[256];
-    
     float curVal = 1e10f;
     int curX = -1, curY = -1;
-    if (idx < N) {
-        int grid_dens = 10;
-        Point cur_pos(grid_dens * (idx % int(field_size[0] / grid_dens)),
-                       grid_dens * int(idx / int(field_size[0] / grid_dens)));
-        // Point p2(0,0);
-        curVal = 0.0f;
-        // for (int i = 0; i <= 7; i++) {
-        //     curVal += dist(cur_pos, field[i]);
-        // }
-        curVal = sin(pow((double)cur_pos.x, 3.0) + pow((double)cur_pos.y, 3.0)) * exp(cos((double)(cur_pos.x * cur_pos.y)));
+    // Field fld = Field(
+    //     field_info[0],
+    //     field_info[1],
+    //     field_info[2],
+    //     field_info[3],
+    //     field_info[4],
+    //     field_info[5]
+    // );
+    if(idx < N)
+    {
+        Point cur_pos(
+            grid_dens * (idx % int(field_info[0]*2 / grid_dens)),
+            grid_dens * int(idx / int(field_info[0]*2 / grid_dens))//field_info[0]*2 - размер поля по x
+        );
+        curVal = -idx+10;//estimate_point(fld,cur_pos,kick_point,enemies,en_count);
         curX = cur_pos.x;
         curY = cur_pos.y;
     }
-    // printf("%f %i %i\n",curVal,curX,curY);
-    // Записываем свои значения в shared memory
     localVals[threadIdx.x] = curVal;
     localX[threadIdx.x] = curX;
     localY[threadIdx.x] = curY;
     __syncthreads();
-
-    // Поток 0 внутри блока находит минимум
     if (threadIdx.x == 0) {
         float minV = 1e10f;
         int minX = -1, minY = -1;
@@ -331,12 +315,9 @@ extern "C" __global__ void find_best_pass_point(Point *field, float *field_size,
                 minY = localY[i];
             }
         }
-        // Записываем минимум этого блока в выходной массив
         globVals[blockIdx.x] = minV;
         globX[blockIdx.x] = minX;
         globY[blockIdx.x] = minY;
-        
-        // printf("Found minVal=%f at (%d, %d)\n", minV, minX, minY);
     }
     __syncthreads();
     if(idx == 0)
@@ -350,12 +331,9 @@ extern "C" __global__ void find_best_pass_point(Point *field, float *field_size,
                 minY = globY[i];
             }
         }
-        // for(int i = 0;i<GRID_SIZE;i++)
-        // {
-        //     printf("%f at %i,%i\n",globVals[i],globX[i],globY[i]);
-        // }
-        printf("end min Val: %f at %i, %i\n",minV,minX,minY);
+        // printf("end min Val: %f at %i, %i\n",minV,minX,minY);
         out[0] = minX;
         out[1] = minY;
     }
+
 }
