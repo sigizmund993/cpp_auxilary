@@ -11,7 +11,7 @@ FIELD_DY = 3000
 # GOAL_DX = FIELD_DX
 # GOAL_DY = 1000
 # POLARITY = 1
-grid_dens = 1
+grid_dens = 10
 
 ball_pos = aux.Point(100,100)
 enemies_poses = [aux.Point(120,1410),aux.Point(7800,2210),aux.Point(1223,93),aux.Point(2939,229),aux.Point(294.3211),aux.Point(1032,3420)]

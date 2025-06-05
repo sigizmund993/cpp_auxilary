@@ -64,8 +64,8 @@ struct Point {
     }
 };
 struct Field {
-    float GOAL_DX, GOAL_DY, ZONE_DX, ZONE_DY, FIELD_DX, FIELD_DY;
-    int POLARITY;
+    // float GOAL_DX, GOAL_DY, ZONE_DX, ZONE_DY, FIELD_DX, FIELD_DY;
+    // int POLARITY;
     Point hull[4];
     Point enemy_hull[4], ally_hull[4];
     Point enemy_goal[2], ally_goal[2];
@@ -307,8 +307,8 @@ extern "C" __global__ void find_best_pass_point(Point *field_poses,int en_count,
     if(idx < N)
     {
         Point cur_pos(
-            grid_dens * (idx % int(field_info[0]*2 / grid_dens)),
-            grid_dens * int(idx / int(field_info[0]*2 / grid_dens))//field_info[0]*2 - размер поля по x
+            grid_dens * (idx % int(FIELD_DX*2 / grid_dens)),
+            grid_dens * int(idx / int(FIELD_DX*2 / grid_dens))//field_info[0]*2 - размер поля по x
         );
         curVal = estimate_point(fld,cur_pos,field_poses[0],enemies,en_count);
         curX = cur_pos.x;
