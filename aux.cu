@@ -273,8 +273,8 @@ __host__ __device__ float estimate_shoot(Point point, Field fld, Point *enemies,
 }
 
 __host__ __device__ float estimate_point(Field fld, Point point, Point kick_point, Point *enemies, int en_n) {
-    return estimate_goal_view(point, fld) - estimate_pass_point(enemies, en_n, kick_point, point) - estimate_dist_to_boarder(point, fld) - 
-    estimate_shoot(point, fld, enemies, en_n) - estimate_dist_to_enemy(point, enemies, en_n);
+    return -(estimate_goal_view(point, fld) - estimate_pass_point(enemies, en_n, kick_point, point) - estimate_dist_to_boarder(point, fld) - 
+    estimate_shoot(point, fld, enemies, en_n) - estimate_dist_to_enemy(point, enemies, en_n));
 
 }
 __device__ float globVals[GRID_SIZE];
@@ -307,8 +307,8 @@ extern "C" __global__ void find_best_pass_point(Point *field_poses,int en_count,
     if(idx < N)
     {
         Point cur_pos(
-            grid_dens * (idx % int(FIELD_DX*2 / grid_dens)),
-            grid_dens * int(idx / int(FIELD_DX*2 / grid_dens))//field_info[0]*2 - размер поля по x
+            grid_dens * (idx % int(FIELD_DX*2 / grid_dens))-FIELD_DX,
+            grid_dens * int(idx / int(FIELD_DX*2 / grid_dens))-FIELD_DY//field_info[0]*2 - размер поля по x
         );
         curVal = estimate_point(fld,cur_pos,field_poses[0],enemies,en_count);
         curX = cur_pos.x;
@@ -344,10 +344,24 @@ extern "C" __global__ void find_best_pass_point(Point *field_poses,int en_count,
                 minY = globY[i];
             }
         }
-        printf("end min Val: %f at %i, %i\n",minV,minX,minY);
+        // printf("end min Val: %f at %i, %i\n",minV,minX,minY);
         // printf("%f",estimate_point(fld,Point(8990,30),field_poses[0],enemies,en_count));
         out[0] = minX;
         out[1] = minY;
+        out[2] = minV;
+        // minV = 1e10f;
+        // minX = -1;
+        // minY = -1;
+        // for (int i = 0; i < GRID_SIZE; i++) {
+        //     if (globVals[i] < minV && globVals[i]!=out[2]){// && sqrtf((out[0]-globX[i])*(out[0]-globX[i])+(out[1]-globY[i])*(out[1]-globY[i]))>1000) {
+        //         minV = globVals[i];
+        //         minX = globX[i];
+        //         minY = globY[i];
+        //     }
+        // }
+        // out[3] = minX;
+        // out[4] = minY;
+        // out[5] = minV;
     }
 
 }

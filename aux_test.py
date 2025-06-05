@@ -14,12 +14,13 @@ FIELD_DY = 3000
 grid_dens = 10
 
 ball_pos = aux.Point(100,100)
-enemies_poses = [aux.Point(120,1410),aux.Point(7800,2210),aux.Point(1223,93),aux.Point(2939,229),aux.Point(294.3211),aux.Point(1032,3420)]
+enemies_poses = [aux.Point(120,1410),aux.Point(2800,-2210),aux.Point(1223,-93),aux.Point(2939,-229),aux.Point(-294.3211),aux.Point(-1032,-3420)]
 
 with open("aux.cu", "r") as f:
     cuda_code = f.read()
 mod = SourceModule(cuda_code)
 find_pass_point = mod.get_function("find_best_pass_point")
+
 start_time = time()
 N = int(FIELD_DX*2/grid_dens*FIELD_DY*2/grid_dens)+1
 field_poses:list[tuple[float,float]] = [(ball_pos.x,ball_pos.y)]
@@ -40,7 +41,7 @@ field_poses_gpu = cuda.mem_alloc(field_poses_n.nbytes)
 # kick_point_gpu = cuda.mem_alloc(kick_point_n.nbytes)
 # field_info_gpu = cuda.mem_alloc(field_info.nbytes)
 # a_gpu = cuda.mem_alloc(a.nbytes)
-out_gpu = cuda.mem_alloc(2 * np.float32().nbytes)
+out_gpu = cuda.mem_alloc(3 * np.float32().nbytes)
 # field_size_gpu = cuda.mem_alloc(field_size.nbytes)
 
 cuda.memcpy_htod(field_poses_gpu, field_poses_n)
@@ -52,13 +53,13 @@ cuda.memcpy_htod(field_poses_gpu, field_poses_n)
 block_size = 256
 grid_size = (N + block_size - 1) // block_size
 
-print(grid_size)
+# print(grid_size)
 
 find_pass_point(field_poses_gpu,np.int32(len(enemies_poses)),np.int32(grid_dens),out_gpu, np.int32(N), block=(256, 1, 1), grid=(grid_size, 1))
 # find_pass_point(field_info_gpu,field_poses_gpu,np.int32(len(enemies_poses)),np.int32(grid_dens),out_gpu, np.int32(N), block=(256, 1, 1), grid=(grid_size, 1))
 # find_pass_point(field_info_gpu, enemies_gpu, np.int8(len(enemies)),kick_point_gpu,np.int8(grid_dens),out_gpu, np.int32(N), block=(256, 1, 1), grid=(grid_size, 1))
 #extern "C" __global__ void find_best_pass_point(float *field_info,Point *enemies, int en_count, Point kick_point,float grid_dens, float *out, int N)
-out = np.zeros(2, dtype=np.float32)
+out = np.zeros(3, dtype=np.float32)
 cuda.memcpy_dtoh(out, out_gpu)
 end_time = time()
 print(end_time-start_time)
