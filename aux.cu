@@ -1,5 +1,5 @@
 #define PI 3.14159265358979323846f
-#define ROBOT_R 100f
+#define ROBOT_R 100.0f
 #define OBSTACLE_ANGLE (3.1415926535897932386f / 5f)
 #define GOAL_VIEW_ANGLE (3.1415926535897932386f / 4f)
 #define DIST_TO_ENEMY 1500
@@ -11,11 +11,11 @@ struct Point {
     __host__ __device__ Point() : x(0), y(0) {}
     __host__ __device__ Point(float x_, float y_) : x(x_), y(y_) {}
 
-    __host__ __device__ Point operator+(Point& b) {
+    __host__ __device__ Point operator+(Point b) {
         return Point(x + b.x, y + b.y);
     }
 
-    __host__ __device__ Point operator-(Point& b) {
+    __host__ __device__ Point operator-(Point b) {
         return Point(x - b.x, y - b.y);
     }
 
@@ -24,20 +24,20 @@ struct Point {
     }
 
     __host__ __device__
-    bool operator==(Point& other) {
+    bool operator==(Point other) {
         return x == other.x && y == other.y;
     }
 
     __host__ __device__
-    bool operator!=(Point& other) {
+    bool operator!=(Point other) {
         return !(*this == other);
     }
 
-    __host__ __device__ float scalar(Point& b) {
+    __host__ __device__ float scalar(Point b) {
         return x * b.x + y * b.y;
     }
 
-    __host__ __device__ float vector(Point& b) {
+    __host__ __device__ float vector(Point b) {
         return x * b.y - y * b.x;
     }
 
@@ -47,7 +47,7 @@ struct Point {
 
     __host__ __device__ Point unity() {
         float len = mag();
-        return len > 0.0f ? Vec2(x / len, y / len) : Vec2(0.0f, 0.0f);
+        return len > 0.0f ? Point(x / len, y / len) : Point(0.0f, 0.0f);
     }
 
     __host__ __device__ float arg() {
@@ -88,7 +88,7 @@ struct Field {
     }
 };
 
-__host__ __device__ int sign(float& a) {
+__host__ __device__ int sign(float a) {
     if (a > 0) return 1;
     if (a < 0) return -1;
     return 0;
@@ -104,11 +104,11 @@ __host__ __device__ float wind_down_angle(float angle) {
     return angle;
 }
 
-__host__ __device__ float get_angle_between_points(Point& a, Point& b, Point& c) {
+__host__ __device__ float get_angle_between_points(Point a, Point b, Point c) {
     return wind_down_angle((a - b).arg() - (c - b).arg());
 }
 
-__host__ __device__ void circles_inter(Point& p0, Point& p1, float& r0, float& r1, Point* out) {
+__host__ __device__ void circles_inter(Point p0, Point p1, float r0, float r1, Point* out) {
     float d = (p0 - p1).mag();
     float a = (r0 * r0 - r1 * r1 + d * d) / (2 * d);
     float h = sqrtf(r0 * r0 - a * a);
@@ -120,7 +120,7 @@ __host__ __device__ void circles_inter(Point& p0, Point& p1, float& r0, float& r
     out[1].y = y2 + h * (p1.x - p0.x) / d;
 }
 
-__host__ __device__ int get_tangent_points(Point& point0, Point& point1, float& r, Point* out) {
+__host__ __device__ int get_tangent_points(Point point0, Point point1, float r, Point* out) {
     float d = (point1 - point0).mag();
     if (d < r) {
         return 0;
@@ -136,28 +136,28 @@ __host__ __device__ int get_tangent_points(Point& point0, Point& point1, float& 
 
 __host__ __device__ Point closest_point_on_line(Point point1, Point point2, Point point, char type = 'S') {
     float line_len = (point1 - point2).mag();
-    if (len == 0) {
+    if (line_len == 0) {
         return point1;
     }
     Point line_dir = (point1 - point2).unity();
     Point point_vec = point - point1;
-    dot_product = point_vec.dot(line_dir);
+    float dot_product = point_vec.scalar(line_dir);
     if (dot_product <= 0 && type != 'L') {
         return point1;
     }
     if (dot_product >= line_len && type == 'S') {
         return point2;
     }
-    return point1 + line_dir * dot_product;
+    return line_dir * dot_product + point1;
 }
 
 __host__ __device__ Point nearest_point_on_poly(Point p, Point *poly, int ed_n) {
     float min_ = -1, d;
     Point ans(0, 0), pnt(0, 0);
     for (int i = 0; i < ed_n; i++) {
-        pnt = closest_point_on_line(poly[i], poly[i > 0 ? i - 1 : ed_n - 1]);
+        pnt = closest_point_on_line(poly[i], poly[i > 0 ? i - 1 : ed_n - 1], p);
         d = (pnt - p).mag();
-        if (d < min_ || min < 0) {
+        if (d < min_ || min_ < 0) {
             min_ = d;
             ans = pnt;
         }
@@ -165,24 +165,25 @@ __host__ __device__ Point nearest_point_on_poly(Point p, Point *poly, int ed_n) 
     return ans;
 }
 
-__host__ __device__ bool is_point_inside_poly(Point p, Point points, int ed_n) {
-    float old_sign = sign((p - point[ed_n - 1]).vector(points[0] - points[ed_n - 1]));
-    for (int i = 0; i < ed_n - 1; i++):
-        if (old_sign != sign((p - point[i]).vector(points[i + 1] - points[i]))) {
+__host__ __device__ bool is_point_inside_poly(Point p, Point *points, int ed_n) {
+    float old_sign = sign((p - points[ed_n - 1]).vector(points[0] - points[ed_n - 1]));
+    for (int i = 0; i < ed_n - 1; i++) {
+        if (old_sign != sign((p - points[i]).vector(points[i + 1] - points[i]))) {
             return false;
         }  
+    }
     return true;
 }
 
-__host__ __device__ Point find_nearest_robot(Point point, Point *team, int& te_n) {
-    int ans = Point(0, 0);
+__host__ __device__ Point find_nearest_robot(Point point, Point *team, int te_n) {
+    Point ans = Point(0, 0);
     float min_dist = -1, dist;
 
     if (te_n == 0) {
         return Point(0, 0);
     }
     for (int i = 0; i < te_n; i++) {
-        dist = (team[i] - point).mag()
+        dist = (team[i] - point).mag();
         if (dist < min_dist || min_dist < 0) {
             ans = team[i];
             min_dist = dist;
@@ -192,13 +193,13 @@ __host__ __device__ Point find_nearest_robot(Point point, Point *team, int& te_n
 }
 
 __host__ __device__ float estimate_pass_point(Point *enemies, int en_n, Point frm, Point to) {
-    float lerp = 0f;
-    float ang, ang1, ang2
-    for(int i = 0; i < en_n; i++) {
+    float lerp = 0.0f;
+    float ang, ang1, ang2;
+    for (int i = 0; i < en_n; i++) {
         float frm_enemy = (enemies[i] - frm).mag();
         if (frm_enemy > ROBOT_R) {
             Point tgs[2];
-            get_tangent_points(enemies[i], frm, ROBOT_R);
+            get_tangent_points(enemies[i], frm, ROBOT_R, tgs);
             ang1 = get_angle_between_points(to, frm, tgs[0]);
             ang2 = get_angle_between_points(to, frm, tgs[1]);
             ang = fminf(fabsf(ang1), fabsf(ang2));
@@ -223,7 +224,7 @@ __host__ __device__ float estimate_goal_view(Point& point, Field& fld) {
 
 __host__ __device__ float estimate_dist_to_boarder(Point& point, Field& fld) {
     float dist_to_goal_zone = (point - nearest_point_on_poly(point, fld.enemy_hull, 4)).mag();
-    if (is_point_inside_poly(point, fld.enemy_goal.hull, 4)) {
+    if (is_point_inside_poly(point, fld.enemy_goal, 4)) {
         dist_to_goal_zone *= -1;
     }
     
