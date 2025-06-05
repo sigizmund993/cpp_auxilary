@@ -6,11 +6,11 @@ from time import time
 import aux
 FIELD_DX = 4500
 FIELD_DY = 3000
-GOAL_PEN_DX = 1000
-GOAL_PEN_DY = 2000
-GOAL_DX = FIELD_DX
-GOAL_DY = 1000
-POLARITY = 1
+# GOAL_PEN_DX = 1000
+# GOAL_PEN_DY = 2000
+# GOAL_DX = FIELD_DX
+# GOAL_DY = 1000
+# POLARITY = 1
 grid_dens = 1
 
 ball_pos = aux.Point(100,100)
@@ -34,18 +34,18 @@ field_poses_n = np.array([tuple(row) for row in field_poses], dtype=Point)
 # kick_point_n = np.array((kick_point.x, kick_point.y), dtype=Point)
 # a = np.array([tuple(row) for row in a_points], dtype=Point)
 
-field_info = np.array([GOAL_DX,GOAL_DY,GOAL_PEN_DX,GOAL_PEN_DY,FIELD_DY,POLARITY],dtype=np.float32)
+# field_info = np.array([GOAL_DX,GOAL_DY,GOAL_PEN_DX,GOAL_PEN_DY,FIELD_DY,POLARITY],dtype=np.float32)
 
 field_poses_gpu = cuda.mem_alloc(field_poses_n.nbytes)
 # kick_point_gpu = cuda.mem_alloc(kick_point_n.nbytes)
-field_info_gpu = cuda.mem_alloc(field_info.nbytes)
+# field_info_gpu = cuda.mem_alloc(field_info.nbytes)
 # a_gpu = cuda.mem_alloc(a.nbytes)
 out_gpu = cuda.mem_alloc(2 * np.float32().nbytes)
 # field_size_gpu = cuda.mem_alloc(field_size.nbytes)
 
 cuda.memcpy_htod(field_poses_gpu, field_poses_n)
 # cuda.memcpy_htod(kick_point_gpu, kick_point_n)
-cuda.memcpy_htod(field_info_gpu, field_info)
+# cuda.memcpy_htod(field_info_gpu, field_info)
 # cuda.memcpy_htod(a_gpu, a)
 # cuda.memcpy_htod(field_size_gpu, field_size)
 
@@ -54,7 +54,8 @@ grid_size = (N + block_size - 1) // block_size
 
 print(grid_size)
 
-find_pass_point(field_info_gpu,field_poses_gpu,np.int32(len(enemies_poses)),np.int32(grid_dens),out_gpu, np.int32(N), block=(256, 1, 1), grid=(grid_size, 1))
+find_pass_point(field_poses_gpu,np.int32(len(enemies_poses)),np.int32(grid_dens),out_gpu, np.int32(N), block=(256, 1, 1), grid=(grid_size, 1))
+# find_pass_point(field_info_gpu,field_poses_gpu,np.int32(len(enemies_poses)),np.int32(grid_dens),out_gpu, np.int32(N), block=(256, 1, 1), grid=(grid_size, 1))
 # find_pass_point(field_info_gpu, enemies_gpu, np.int8(len(enemies)),kick_point_gpu,np.int8(grid_dens),out_gpu, np.int32(N), block=(256, 1, 1), grid=(grid_size, 1))
 #extern "C" __global__ void find_best_pass_point(float *field_info,Point *enemies, int en_count, Point kick_point,float grid_dens, float *out, int N)
 out = np.zeros(2, dtype=np.float32)

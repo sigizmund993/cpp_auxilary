@@ -9,6 +9,13 @@
 #define SHOOT_ANGLE (PI / 8)
 #define DANGER_ZONE_DIST 400
 #define MAX_ENEMIES_COUNT 6
+#define GOAL_DX 4500
+#define GOAL_DY 1000
+#define FIELD_DX 4500
+#define FIELD_DY 3000
+#define POLARITY 1
+#define ZONE_DX 1000
+#define ZONE_DY 2000
 struct Point {
     float x, y;
     __host__ __device__ Point() : x(0), y(0) {}
@@ -62,14 +69,15 @@ struct Field {
     Point hull[4];
     Point enemy_hull[4], ally_hull[4];
     Point enemy_goal[2], ally_goal[2];
-    __host__ __device__ Field(float gx, float gy, float zx, float zy, float fy, int pol) {
-        GOAL_DX = gx;
-        GOAL_DY = gy;
-        ZONE_DX = zx;
-        ZONE_DY = zy;
-        FIELD_DX = gx;
-        FIELD_DY = fy;
-        POLARITY = pol;
+    // __host__ __device__ Field(float gx, float gy, float zx, float zy, float fy, int pol) {
+    __host__ __device__ Field() {
+        // GOAL_DX = gx;
+        // GOAL_DY = gy;
+        // ZONE_DX = zx;
+        // ZONE_DY = zy;
+        // FIELD_DX = gx;
+        // FIELD_DY = fy;
+        // POLARITY = pol;
         hull[0] = Point(FIELD_DX, FIELD_DY);
         hull[1] = Point(FIELD_DX, -FIELD_DY);
         hull[2] = Point(-FIELD_DX, -FIELD_DY);
@@ -273,7 +281,8 @@ __device__ float globVals[GRID_SIZE];
 __device__ int globX[GRID_SIZE];
 __device__ int globY[GRID_SIZE];
 //extern "C" __global__ void find_best_pass_point(float *field_info,Point *enemies, int en_count, Point kick_point,int grid_dens, float *out, int N)
-extern "C" __global__ void find_best_pass_point(float *field_info, Point *field_poses,int en_count, int grid_dens, float *out, int N)
+// extern "C" __global__ void find_best_pass_point(float *field_info, Point *field_poses,int en_count, int grid_dens, float *out, int N)
+extern "C" __global__ void find_best_pass_point(Point *field_poses,int en_count, int grid_dens, float *out, int N)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     for(int i = 0;i<GRID_SIZE;i++){
@@ -285,12 +294,12 @@ extern "C" __global__ void find_best_pass_point(float *field_info, Point *field_
     float curVal = 1e10f;
     int curX = -1, curY = -1;
     Field fld = Field(
-        field_info[0],
-        field_info[1],
-        field_info[2],
-        field_info[3],
-        field_info[4],
-        field_info[5]
+        // field_info[0],
+        // field_info[1],
+        // field_info[2],
+        // field_info[3],
+        // field_info[4],
+        // field_info[5]
     );
     Point enemies[MAX_ENEMIES_COUNT];
     for(int i = 0;i<MAX_ENEMIES_COUNT;i++)
