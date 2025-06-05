@@ -5,7 +5,7 @@ import numpy as np
 from time import time
 FIELD_DX = 4500
 FIELD_DY = 3000
-grid_dens = 100
+grid_dens = 10
 start_time = time()
 # Читаем обновленный CUDA-код
 with open("aux.cu", "r") as f:
@@ -46,4 +46,8 @@ cuda.memcpy_dtoh(out, out_gpu)
 end_time = time()
 print(end_time-start_time)
 print(out)
+# x = 2840
+# y = 30
+# print(np.sin(x**3+y**3)*np.e*(np.cos(x*y)))
+#in(pow((double)i, 3.0) + pow((double)j, 3.0)) * exp(cos((double)(i * j)))
 
