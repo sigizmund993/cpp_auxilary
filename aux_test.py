@@ -4,6 +4,8 @@ from pycuda.compiler import SourceModule
 import numpy as np
 from time import time
 import aux
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 FIELD_DX = 4500
 FIELD_DY = 3000
 # GOAL_PEN_DX = 1000
@@ -11,16 +13,17 @@ FIELD_DY = 3000
 # GOAL_DX = FIELD_DX
 # GOAL_DY = 1000
 # POLARITY = 1
-grid_dens = 10
+grid_dens = 100
 
 ball_pos = aux.Point(100,100)
-enemies_poses = [aux.Point(120,1410),aux.Point(2800,-2210),aux.Point(1223,-93),aux.Point(2939,-229),aux.Point(-294.3211),aux.Point(-1032,-3420)]
+enemies_poses = [aux.Point(120,1410),aux.Point(2800,-2210),aux.Point(1223,-93),aux.Point(2939,-229),aux.Point(-294.-1211),aux.Point(-1032,-2420)]
 
 with open("aux.cu", "r") as f:
     cuda_code = f.read()
 mod = SourceModule(cuda_code)
 find_pass_point = mod.get_function("find_best_pass_point")
-while True:
+# while True:
+if True:
     start_time = time()
     N = int(FIELD_DX*2/grid_dens*FIELD_DY*2/grid_dens)+1
     field_poses:list[tuple[float,float]] = [(ball_pos.x,ball_pos.y)]
@@ -41,7 +44,7 @@ while True:
     # kick_point_gpu = cuda.mem_alloc(kick_point_n.nbytes)
     # field_info_gpu = cuda.mem_alloc(field_info.nbytes)
     # a_gpu = cuda.mem_alloc(a.nbytes)
-    out_gpu = cuda.mem_alloc(3 * np.float32().nbytes)
+    out_gpu = cuda.mem_alloc(int(FIELD_DX*2/grid_dens*FIELD_DY*2/grid_dens) * np.float32().nbytes)
     # field_size_gpu = cuda.mem_alloc(field_size.nbytes)
 
     cuda.memcpy_htod(field_poses_gpu, field_poses_n)
@@ -59,9 +62,33 @@ while True:
     # find_pass_point(field_info_gpu,field_poses_gpu,np.int32(len(enemies_poses)),np.int32(grid_dens),out_gpu, np.int32(N), block=(256, 1, 1), grid=(grid_size, 1))
     # find_pass_point(field_info_gpu, enemies_gpu, np.int8(len(enemies)),kick_point_gpu,np.int8(grid_dens),out_gpu, np.int32(N), block=(256, 1, 1), grid=(grid_size, 1))
     #extern "C" __global__ void find_best_pass_point(float *field_info,Point *enemies, int en_count, Point kick_point,float grid_dens, float *out, int N)
-    out = np.zeros(3, dtype=np.float32)
+    out = np.zeros(int(FIELD_DX*2/grid_dens*FIELD_DY*2/grid_dens), dtype=np.float32)
     cuda.memcpy_dtoh(out, out_gpu)
     end_time = time()
     print(end_time-start_time)
     print(out)
+# x = [out[0]]
+# y = [out[1]]
+fig, ax = plt.subplots()
+for i,x in enumerate(out):
+    c = (x+1)/10
+    ax.plot(grid_dens * (i % int(FIELD_DX*2 / grid_dens))-FIELD_DX, grid_dens * int(i / int(FIELD_DX*2 / grid_dens))-FIELD_DY, marker='o', color=[c,c,c])
+for en in enemies_poses:
+    ax.plot(en.x,en.y,marker = 'o',color = 'r')
+ax.plot(ball_pos.x,ball_pos.y,marker = 'o',color = 'g')
+# Создание прямоугольника: (x, y, ширина, высота)
+rect = patches.Rectangle((-FIELD_DX, -FIELD_DY), FIELD_DX*2, FIELD_DY*2, linewidth=2, edgecolor='blue', facecolor='lightblue')
 
+# Добавление прямоугольника на оси
+ax.add_patch(rect)
+ax.set_aspect('equal', adjustable='box')
+
+# Настройка пределов осей
+ax.set_xlim(0, 6)
+ax.set_ylim(0, 8)
+
+# Сетка и отображение
+ax.grid(True)
+plt.xlabel('Ось X')
+plt.ylabel('Ось Y')
+plt.show()

@@ -313,55 +313,57 @@ extern "C" __global__ void find_best_pass_point(Point *field_poses,int en_count,
         curVal = estimate_point(fld,cur_pos,field_poses[0],enemies,en_count);
         curX = cur_pos.x;
         curY = cur_pos.y;
+        out[idx] = curVal;
     }
-    localVals[threadIdx.x] = curVal;
-    localX[threadIdx.x] = curX;
-    localY[threadIdx.x] = curY;
-    __syncthreads();
-    if (threadIdx.x == 0) {
-        float minV = 1e10f;
-        int minX = -1, minY = -1;
-        for (int i = 0; i < blockDim.x; i++) {
-            if (localVals[i] < minV) {
-                minV = localVals[i];
-                minX = localX[i];
-                minY = localY[i];
-            }
-        }
-        globVals[blockIdx.x] = minV;
-        globX[blockIdx.x] = minX;
-        globY[blockIdx.x] = minY;
-    }
-    __syncthreads();
-    if(idx == 0)
-    {
-        float minV = 1e10f;
-        int minX = -1, minY = -1;
-        for (int i = 0; i < GRID_SIZE; i++) {
-            if (globVals[i] < minV) {
-                minV = globVals[i];
-                minX = globX[i];
-                minY = globY[i];
-            }
-        }
-        // printf("end min Val: %f at %i, %i\n",minV,minX,minY);
-        // printf("%f",estimate_point(fld,Point(8990,30),field_poses[0],enemies,en_count));
-        out[0] = minX;
-        out[1] = minY;
-        out[2] = minV;
-        // minV = 1e10f;
-        // minX = -1;
-        // minY = -1;
-        // for (int i = 0; i < GRID_SIZE; i++) {
-        //     if (globVals[i] < minV && globVals[i]!=out[2]){// && sqrtf((out[0]-globX[i])*(out[0]-globX[i])+(out[1]-globY[i])*(out[1]-globY[i]))>1000) {
-        //         minV = globVals[i];
-        //         minX = globX[i];
-        //         minY = globY[i];
-        //     }
-        // }
-        // out[3] = minX;
-        // out[4] = minY;
-        // out[5] = minV;
-    }
+    
+    // localVals[threadIdx.x] = curVal;
+    // localX[threadIdx.x] = curX;
+    // localY[threadIdx.x] = curY;
+    // __syncthreads();
+    // if (threadIdx.x == 0) {
+    //     float minV = 1e10f;
+    //     int minX = -1, minY = -1;
+    //     for (int i = 0; i < blockDim.x; i++) {
+    //         if (localVals[i] < minV) {
+    //             minV = localVals[i];
+    //             minX = localX[i];
+    //             minY = localY[i];
+    //         }
+    //     }
+    //     globVals[blockIdx.x] = minV;
+    //     globX[blockIdx.x] = minX;
+    //     globY[blockIdx.x] = minY;
+    // }
+    // __syncthreads();
+    // if(idx == 0)
+    // {
+    //     float minV = 1e10f;
+    //     int minX = -1, minY = -1;
+    //     for (int i = 0; i < GRID_SIZE; i++) {
+    //         if (globVals[i] < minV) {
+    //             minV = globVals[i];
+    //             minX = globX[i];
+    //             minY = globY[i];
+    //         }
+    //     }
+    //     // printf("end min Val: %f at %i, %i\n",minV,minX,minY);
+    //     // printf("%f",estimate_point(fld,Point(8990,30),field_poses[0],enemies,en_count));
+    //     out[0] = minX;
+    //     out[1] = minY;
+    //     out[2] = minV;
+    //     // minV = 1e10f;
+    //     // minX = -1;
+    //     // minY = -1;
+    //     // for (int i = 0; i < GRID_SIZE; i++) {
+    //     //     if (globVals[i] < minV && globVals[i]!=out[2]){// && sqrtf((out[0]-globX[i])*(out[0]-globX[i])+(out[1]-globY[i])*(out[1]-globY[i]))>1000) {
+    //     //         minV = globVals[i];
+    //     //         minX = globX[i];
+    //     //         minY = globY[i];
+    //     //     }
+    //     // }
+    //     // out[3] = minX;
+    //     // out[4] = minY;
+    //     // out[5] = minV;
+    // }
 
 }
