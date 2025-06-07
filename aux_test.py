@@ -84,8 +84,8 @@ ax.add_patch(rect)
 ax.set_aspect('equal', adjustable='box')
 
 # Настройка пределов осей
-ax.set_xlim(0, 6)
-ax.set_ylim(0, 8)
+ax.set_xlim(-4500, 4500)
+ax.set_ylim(-3000, 3000)
 
 # Сетка и отображение
 ax.grid(True)
