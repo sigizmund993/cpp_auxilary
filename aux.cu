@@ -236,7 +236,7 @@ __host__ __device__ float estimate_pass_point(Point *enemies, int en_n, Point fr
 }
 
 __host__ __device__ float estimate_goal_view(Point point, Field fld) {
-    return fminf(fabsf(get_angle_between_points(fld.enemy_goal[0], point, fld.enemy_goal[1])/GOAL_VIEW_ANGLE), 1);
+    return fminf(fabsf(get_angle_between_points(fld.enemy_goal[0], point, fld.enemy_goal[1]))/GOAL_VIEW_ANGLE, 1);
 }
 
 __host__ __device__ float estimate_dist_to_boarder(Point point, Field fld) {
