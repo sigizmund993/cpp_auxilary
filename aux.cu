@@ -67,7 +67,7 @@ struct Field {
     // float GOAL_DX, GOAL_DY, ZONE_DX, ZONE_DY, FIELD_DX, FIELD_DY;
     // int POLARITY;
     Point hull[4];
-    Point enemy_hull[4], ally_hull[4];
+    Point enemy_hull[5], ally_hull[5];
     Point enemy_goal[2], ally_goal[2];
     // __host__ __device__ Field(float gx, float gy, float zx, float zy, float fy, int pol) {
     __host__ __device__ Field() {
@@ -83,13 +83,15 @@ struct Field {
         hull[2] = Point(-FIELD_DX, -FIELD_DY);
         hull[3] = Point(-FIELD_DX, FIELD_DY);
         enemy_hull[0] = Point(FIELD_DX * POLARITY, ZONE_DY / 2);
-        enemy_hull[1] = Point(FIELD_DX * POLARITY, -ZONE_DY / 2);
-        enemy_hull[2] = Point((FIELD_DX - ZONE_DX) * POLARITY, -ZONE_DY / 2);
-        enemy_hull[3] = Point((FIELD_DX - ZONE_DX) * POLARITY, ZONE_DY / 2);
+        enemy_hull[1] = Point(1e10f * POLARITY, 0);
+        enemy_hull[2] = Point(FIELD_DX * POLARITY, -ZONE_DY / 2);
+        enemy_hull[3] = Point((FIELD_DX - ZONE_DX) * POLARITY, -ZONE_DY / 2);
+        enemy_hull[4] = Point((FIELD_DX - ZONE_DX) * POLARITY, ZONE_DY / 2);
         ally_hull[0] = Point(FIELD_DX * -POLARITY, ZONE_DY / 2);
-        ally_hull[1] = Point(FIELD_DX * -POLARITY, -ZONE_DY / 2);
-        ally_hull[2] = Point((FIELD_DX - ZONE_DX) * -POLARITY, -ZONE_DY / 2);
-        ally_hull[3] = Point((FIELD_DX - ZONE_DX) * -POLARITY, ZONE_DY / 2);
+        ally_hull[1] = Point(-1e10f * POLARITY, 0);
+        ally_hull[2] = Point(FIELD_DX * -POLARITY, -ZONE_DY / 2);
+        ally_hull[3] = Point((FIELD_DX - ZONE_DX) * -POLARITY, -ZONE_DY / 2);
+        ally_hull[4] = Point((FIELD_DX - ZONE_DX) * -POLARITY, ZONE_DY / 2);
         enemy_goal[0] = Point(GOAL_DX * POLARITY, GOAL_DY / 2);
         enemy_goal[1] = Point(GOAL_DX * POLARITY, -GOAL_DY / 2);
         ally_goal[0] = Point(GOAL_DX * -POLARITY, GOAL_DY / 2);
@@ -205,7 +207,7 @@ __host__ __device__ Point find_nearest_robot(Point point, Point *team, int te_n)
 }
 
 __host__ __device__ float estimate_pass_point(Point *enemies, int en_n, Point frm, Point to) {
-    float lerp = 0.0f;
+    float lerp = 0.0f;      
     float ang, ang1, ang2;
     for (int i = 0; i < en_n; i++) {
         float frm_enemy = (enemies[i] - frm).mag();
@@ -238,8 +240,8 @@ __host__ __device__ float estimate_goal_view(Point point, Field fld) {
 }
 
 __host__ __device__ float estimate_dist_to_boarder(Point point, Field fld) {
-    float dist_to_goal_zone = (point - nearest_point_on_poly(point, fld.enemy_hull, 4)).mag();
-    if (is_point_inside_poly(point, fld.enemy_hull, 4)) {
+    float dist_to_goal_zone = (point - nearest_point_on_poly(point, fld.enemy_hull, 5)).mag();
+    if (is_point_inside_poly(point, fld.enemy_hull, 5)) {
         dist_to_goal_zone *= -1;
     }
     
