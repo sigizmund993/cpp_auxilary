@@ -13,7 +13,7 @@ FIELD_DY = 3000
 # GOAL_DX = FIELD_DX
 # GOAL_DY = 1000
 # POLARITY = 1
-grid_dens = 100
+grid_dens = 50
 
 ball_pos = aux.Point(100,100)
 enemies_poses = [aux.Point(120,1410),aux.Point(2800,-2210),aux.Point(1223,-93),aux.Point(2939,-229),aux.Point(-294.-1211),aux.Point(-1032,-2420)]
@@ -88,21 +88,25 @@ for i,x in enumerate(out):
 
 end_time = time()
 print(end_time-start_time)
+for i,x in enumerate(out):
+    c = (x+7)/15
+    ax.plot(grid_dens * (i % int(FIELD_DX*2 / grid_dens))-FIELD_DX, grid_dens * int(i / int(FIELD_DX*2 / grid_dens))-FIELD_DY, marker='o', color=[c,c,c])
+for en in enemies_poses:
+    ax.plot(en.x,en.y,marker = 'o',color = 'r')    
+ax.plot(ball_pos.x,ball_pos.y,marker = 'o',color = 'g')
+# Создание прямоугольника: (x, y, ширина, высота)
+rect = patches.Rectangle((-FIELD_DX, -FIELD_DY), FIELD_DX*2, FIELD_DY*2, linewidth=2, edgecolor='blue', facecolor='lightblue')
 
-# ax.plot(ball_pos.x,ball_pos.y,marker = 'o',color = 'g')
-# # Создание прямоугольника: (x, y, ширина, высота)
-# rect = patches.Rectangle((-FIELD_DX, -FIELD_DY), FIELD_DX*2, FIELD_DY*2, linewidth=2, edgecolor='blue', facecolor='lightblue')
+# Добавление прямоугольника на оси
+ax.add_patch(rect)
+ax.set_aspect('equal', adjustable='box')
 
-# # Добавление прямоугольника на оси
-# ax.add_patch(rect)
-# ax.set_aspect('equal', adjustable='box')
+# Настройка пределов осей
+ax.set_xlim(-4500, 4500)
+ax.set_ylim(-3000, 3000)
 
-# # Настройка пределов осей
-# ax.set_xlim(-4500, 4500)
-# ax.set_ylim(-3000, 3000)
-
-# # Сетка и отображение
-# ax.grid(True)
-# plt.xlabel('Ось X')
-# plt.ylabel('Ось Y')
-# plt.show()
+# Сетка и отображение
+ax.grid(True)
+plt.xlabel('Ось X')
+plt.ylabel('Ось Y')
+plt.show()

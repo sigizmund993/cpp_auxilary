@@ -148,9 +148,12 @@ __host__ __device__ Point closest_point_on_line(Point point1, Point point2, Poin
     if (line_len == 0) {
         return point1;
     }
-    Point line_dir = (point1 - point2).unity();
+    Point line_dir = (point2 - point1).unity();
     Point point_vec = point - point1;
     float dot_product = point_vec.scalar(line_dir);
+    // if (type == 'S') {
+    //     return 0;
+    // }
     if (dot_product <= 0 && type != 'L') {
         return point1;
     }
@@ -207,16 +210,19 @@ __host__ __device__ float estimate_pass_point(Point *enemies, int en_n, Point fr
     for (int i = 0; i < en_n; i++) {
         float frm_enemy = (enemies[i] - frm).mag();
         if (frm_enemy > ROBOT_R) {
-            Point tgs[2];
-            get_tangent_points(enemies[i], frm, ROBOT_R, tgs);
-            ang1 = get_angle_between_points(to, frm, tgs[0]);
-            ang2 = get_angle_between_points(to, frm, tgs[1]);
-            ang = fminf(fabsf(ang1), fabsf(ang2));
-            if (ang1 * ang2 < 0 && fabsf(ang1) < PI / 2 && fabsf(ang2) < PI / 2)
+            if(frm_enemy <= (frm - to).mag()) {
+                Point tgs[2];
+                get_tangent_points(enemies[i], frm, ROBOT_R, tgs);
+                ang1 = get_angle_between_points(to, frm, tgs[0]);
+                ang2 = get_angle_between_points(to, frm, tgs[1]);
+                ang = fminf(fabsf(ang1), fabsf(ang2));
+                if (ang1 * ang2 < 0 && fabsf(ang1) < PI / 2 && fabsf(ang2) < PI / 2) {
                     ang *= -1;
-        }
-        else {
-            ang = 2 * asinf(((enemies[i] - to).mag() / 2) / frm_enemy) - asinf(ROBOT_R / frm_enemy);
+                }
+            }
+            else {
+                ang = 2 * asinf(((enemies[i] - to).mag() / 2) / frm_enemy) - asinf(ROBOT_R / frm_enemy);
+            }
         }
 
         if (ang < OBSTACLE_ANGLE) {
@@ -228,12 +234,12 @@ __host__ __device__ float estimate_pass_point(Point *enemies, int en_n, Point fr
 }
 
 __host__ __device__ float estimate_goal_view(Point point, Field fld) {
-    return fminf(fabsf(get_angle_between_points(fld.enemy_goal[0], point, fld.enemy_goal[1])), 1);
+    return fminf(fabsf(get_angle_between_points(fld.enemy_goal[0], point, fld.enemy_goal[1])/GOAL_VIEW_ANGLE), 1);
 }
 
 __host__ __device__ float estimate_dist_to_boarder(Point point, Field fld) {
     float dist_to_goal_zone = (point - nearest_point_on_poly(point, fld.enemy_hull, 4)).mag();
-    if (is_point_inside_poly(point, fld.enemy_goal, 4)) {
+    if (is_point_inside_poly(point, fld.enemy_hull, 4)) {
         dist_to_goal_zone *= -1;
     }
     
@@ -273,8 +279,8 @@ __host__ __device__ float estimate_shoot(Point point, Field fld, Point *enemies,
 }
 
 __host__ __device__ float estimate_point(Field fld, Point point, Point kick_point, Point *enemies, int en_n) {
-    return -(estimate_goal_view(point, fld) - estimate_pass_point(enemies, en_n, kick_point, point) - estimate_dist_to_boarder(point, fld) - 
-    estimate_shoot(point, fld, enemies, en_n) - estimate_dist_to_enemy(point, enemies, en_n));
+    return estimate_goal_view(point, fld) - estimate_pass_point(enemies, en_n, kick_point, point) - estimate_dist_to_boarder(point, fld) - 
+    estimate_shoot(point, fld, enemies, en_n) - estimate_dist_to_enemy(point, enemies, en_n);
 
 }
 __device__ float globVals[GRID_SIZE];
@@ -313,7 +319,9 @@ extern "C" __global__ void find_best_pass_point(Point *field_poses,int en_count,
         curVal = estimate_point(fld,cur_pos,field_poses[0],enemies,en_count);
         curX = cur_pos.x;
         curY = cur_pos.y;
+        //Point poly[4] = {Point(0, 0), Point(1, 0), Point(1, 1), Point(0, 1)};
         out[idx] = curVal;
+        //out[idx] = (Point(2, 2).unity()).x;
     }
     
     // localVals[threadIdx.x] = curVal;
