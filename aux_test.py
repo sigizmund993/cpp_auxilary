@@ -64,31 +64,45 @@ if True:
     #extern "C" __global__ void find_best_pass_point(float *field_info,Point *enemies, int en_count, Point kick_point,float grid_dens, float *out, int N)
     out = np.zeros(int(FIELD_DX*2/grid_dens*FIELD_DY*2/grid_dens), dtype=np.float32)
     cuda.memcpy_dtoh(out, out_gpu)
-    end_time = time()
-    print(end_time-start_time)
+    
+    
     print(out)
 # x = [out[0]]
 # y = [out[1]]
+minVal = 1e10
+minX = -1
+minY = -1
+
 fig, ax = plt.subplots()
 for i,x in enumerate(out):
-    c = (x+1)/10
-    ax.plot(grid_dens * (i % int(FIELD_DX*2 / grid_dens))-FIELD_DX, grid_dens * int(i / int(FIELD_DX*2 / grid_dens))-FIELD_DY, marker='o', color=[c,c,c])
-for en in enemies_poses:
-    ax.plot(en.x,en.y,marker = 'o',color = 'r')
-ax.plot(ball_pos.x,ball_pos.y,marker = 'o',color = 'g')
-# Создание прямоугольника: (x, y, ширина, высота)
-rect = patches.Rectangle((-FIELD_DX, -FIELD_DY), FIELD_DX*2, FIELD_DY*2, linewidth=2, edgecolor='blue', facecolor='lightblue')
+    # c = (x+1)/10
+    # ax.plot(grid_dens * (i % int(FIELD_DX*2 / grid_dens))-FIELD_DX, grid_dens * int(i / int(FIELD_DX*2 / grid_dens))-FIELD_DY, marker='o', color=[c,c,c])
+    if(x<minVal):
+        minVal = x
+        minX = grid_dens * (i % int(FIELD_DX*2 / grid_dens))-FIELD_DX
+        minY = grid_dens * int(i / int(FIELD_DX*2 / grid_dens))
+# for en in enemies_poses:
+#     ax.plot(en.x,en.y,marker = 'o',color = 'r')
 
-# Добавление прямоугольника на оси
-ax.add_patch(rect)
-ax.set_aspect('equal', adjustable='box')
 
-# Настройка пределов осей
-ax.set_xlim(-4500, 4500)
-ax.set_ylim(-3000, 3000)
 
-# Сетка и отображение
-ax.grid(True)
-plt.xlabel('Ось X')
-plt.ylabel('Ось Y')
-plt.show()
+end_time = time()
+print(end_time-start_time)
+
+# ax.plot(ball_pos.x,ball_pos.y,marker = 'o',color = 'g')
+# # Создание прямоугольника: (x, y, ширина, высота)
+# rect = patches.Rectangle((-FIELD_DX, -FIELD_DY), FIELD_DX*2, FIELD_DY*2, linewidth=2, edgecolor='blue', facecolor='lightblue')
+
+# # Добавление прямоугольника на оси
+# ax.add_patch(rect)
+# ax.set_aspect('equal', adjustable='box')
+
+# # Настройка пределов осей
+# ax.set_xlim(-4500, 4500)
+# ax.set_ylim(-3000, 3000)
+
+# # Сетка и отображение
+# ax.grid(True)
+# plt.xlabel('Ось X')
+# plt.ylabel('Ось Y')
+# plt.show()
