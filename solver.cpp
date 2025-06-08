@@ -1,11 +1,8 @@
 #include <iostream>
 #include <cmath>
+#include <chrono>
 using namespace std;
-
-int main() {
-    cout << "Привет, Code Runner!" << endl;
-    return 0;
-}
+using namespace std::chrono;
 
 double quadr(double *f, int n) {
     static double summ;
@@ -83,8 +80,8 @@ int newton(void (*jac)(void (*)(double*, int, double*), double*, int, double*, d
     for(i = 0; i < max_iter; i++) {
         jac(f, x, n, jacobian, fx, d);
         flag = true;
-        for(j = 0; j < n; n++) {
-            if(abs(fx[i]) > tol) {
+        for(j = 0; j < n; j++) {
+            if(abs(fx[j]) > tol) {
                 flag = false;
             }
         }
@@ -95,12 +92,26 @@ int newton(void (*jac)(void (*)(double*, int, double*), double*, int, double*, d
             return 1;
         }
         for(j = 0; j < n; j++) {
-            x[i] -= dx[i];
+            x[j] -= dx[j];
         }
     }
     return 0;
 }
 
 void func(double *x, int n, double *out) {
+    out[0] = x[0] * x[0] * x[0] - x[0] * x[0] + 1;
+    out[1] = x[1] * x[1] * x[1] - x[1] * x[1] + 1;
+}
 
+int main() {
+    double x[2];
+    int g;
+    x[0] = 0.5;
+    x[1] = 0.5;
+    high_resolution_clock::time_point start = high_resolution_clock::now();
+    g = newton(num_jac, func, x, 2);
+    high_resolution_clock::time_point end = high_resolution_clock::now();
+    duration<double, micro> duration_us = duration_cast<duration<double, micro>>(end - start);
+    cout << "Привет, Code Runner! " << x[0] << " " << x[1] << " ошибка " << g << " время " << duration_us.count() << endl;
+    return 0;
 }
