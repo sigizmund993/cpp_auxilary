@@ -4,6 +4,11 @@
 using namespace std;
 using namespace std::chrono;
 
+double Va[2] = {5, 5};
+double Vb[2] = {1, -12};
+double r[2] = {90, 40};
+double Am = 1;
+
 double quadr(double *f, int n) {
     static double summ;
     summ = 0;
@@ -73,9 +78,9 @@ void num_jac(void (*f)(double*, int, double*), double *x, int n, double *jac, do
 }
 
 int newton(void (*jac)(void (*)(double*, int, double*), double*, int, double*, double*, double), void (*f)(double*, int, double*), 
-    double *x, int n, double tol = 1e-9, int max_iter = 100, double d = 1e-6) {
+    double *x, int n, double tol = 1e-8, int max_iter = 100, double d = 1e-6) {
     static int i, j;
-    static float flag;
+    static bool flag;
     double jacobian[n * n], fx[n], dx[n];
     for(i = 0; i < max_iter; i++) {
         jac(f, x, n, jacobian, fx, d);
@@ -98,9 +103,12 @@ int newton(void (*jac)(void (*)(double*, int, double*), double*, int, double*, d
     return 0;
 }
 
-void func(double *x, int n, double *out) {
-    out[0] = x[0] * x[0] * x[0] - x[0] * x[0] + 1;
-    out[1] = x[1] * x[1] * x[1] - x[1] * x[1] + 1;
+void func1(double *x, int n, double *fx) {
+    static double ma, mb;
+    ma = sqrt((Va[0] - x[0]) * (Va[0] - x[0]) + (Va[1] - x[1]) * (Va[1] - x[1]));
+    mb = sqrt((Vb[0] - x[0]) * (Vb[0] - x[0]) + (Vb[1] - x[1]) * (Vb[1] - x[1]));
+    fx[0] = 2 * Am * r[0] - (x[0] + Va[0]) * ma - (x[0] + Vb[0]) * mb;
+    fx[1] = 2 * Am * r[1] - (x[1] + Va[1]) * ma - (x[1] + Vb[1]) * mb;
 }
 
 int main() {
@@ -109,7 +117,7 @@ int main() {
     x[0] = 0.5;
     x[1] = 0.5;
     high_resolution_clock::time_point start = high_resolution_clock::now();
-    g = newton(num_jac, func, x, 2);
+    g = newton(num_jac, func1, x, 2);
     high_resolution_clock::time_point end = high_resolution_clock::now();
     duration<double, micro> duration_us = duration_cast<duration<double, micro>>(end - start);
     cout << "Привет, Code Runner! " << x[0] << " " << x[1] << " ошибка " << g << " время " << duration_us.count() << endl;
