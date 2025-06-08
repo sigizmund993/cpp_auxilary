@@ -64,20 +64,10 @@ struct Point {
     }
 };
 struct Field {
-    // float GOAL_DX, GOAL_DY, ZONE_DX, ZONE_DY, FIELD_DX, FIELD_DY;
-    // int POLARITY;
     Point hull[4];
     Point enemy_hull[4], ally_hull[4];
     Point enemy_goal[2], ally_goal[2];
-    // __host__ __device__ Field(float gx, float gy, float zx, float zy, float fy, int pol) {
     __host__ __device__ Field() {
-        // GOAL_DX = gx;
-        // GOAL_DY = gy;
-        // ZONE_DX = zx;
-        // ZONE_DY = zy;
-        // FIELD_DX = gx;
-        // FIELD_DY = fy;
-        // POLARITY = pol;
         hull[0] = Point(FIELD_DX, FIELD_DY);
         hull[1] = Point(FIELD_DX, -FIELD_DY);
         hull[2] = Point(-FIELD_DX, -FIELD_DY);
@@ -283,11 +273,6 @@ __host__ __device__ float estimate_point(Field fld, Point point, Point kick_poin
     estimate_shoot(point, fld, enemies, en_n) - estimate_dist_to_enemy(point, enemies, en_n);
 
 }
-__device__ float globVals[GRID_SIZE];
-__device__ int globX[GRID_SIZE];
-__device__ int globY[GRID_SIZE];
-//extern "C" __global__ void find_best_pass_point(float *field_info,Point *enemies, int en_count, Point kick_point,int grid_dens, float *out, int N)
-// extern "C" __global__ void find_best_pass_point(float *field_info, Point *field_poses,int en_count, int grid_dens, float *out, int N)
 __host__ __device__ float estimate_point_by_id(Field fld, Point kick_point, Point *enemies,int grid_dens, int en_n,int idx,int N)
 {
 
@@ -295,13 +280,12 @@ __host__ __device__ float estimate_point_by_id(Field fld, Point kick_point, Poin
     {
         Point cur_pos(
             grid_dens * (idx % int(FIELD_DX*2 / grid_dens))-FIELD_DX,
-            grid_dens * int(idx / int(FIELD_DX*2 / grid_dens))-FIELD_DY//field_info[0]*2 - размер поля по x
+            grid_dens * int(idx / int(FIELD_DX*2 / grid_dens))-FIELD_DY
         );
         return -estimate_point(fld,cur_pos,kick_point,enemies,en_n);
     }
     return 1e10f;
 }
-// __host__ __device__ float min_in_mas()
 extern "C" __global__ void find_best_pass_point(Point *field_poses,int en_count, int grid_dens, float *out, int N)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -313,39 +297,31 @@ extern "C" __global__ void find_best_pass_point(Point *field_poses,int en_count,
 
     __syncthreads();
     int tid = threadIdx.x;
-
-    // Shared memory для нахождения минимума внутри блока
-    __shared__ float sharedVals[256];  // 256 — максимальный размер блока
-
-    // Инициализация локального значения
+    __shared__ float sharedVals[256];
     float val = (idx < N) ? out[idx] : 1e10f;
     sharedVals[tid] = val;
-
     __syncthreads();
-
-    // Редукция для нахождения минимума в блоке
     for (int offset = blockDim.x / 2; offset > 0; offset >>= 1) {
         if (tid < offset) {
             sharedVals[tid] = fminf(sharedVals[tid], sharedVals[tid + offset]);
         }
         __syncthreads();
     }
-
-    // Поток 0 блока записывает минимум блока в глобальный массив
     if (tid == 0) {
-        // printf("z");
         out[blockIdx.x] = sharedVals[0];
         out[blockIdx.x*2] = idx;
     }
 
     // Поток 0 блока 0 ищет глобальный минимум среди всех блоков
-    // if (blockIdx.x == 0 && tid == 0) {
-    //     float globalMin = 1e10f;
-    //     for (int i = 0; i < 256; i++) {
-    //         globalMin = fminf(globalMin, out[i]);
-    //     }
-    //     out[0] = globalMin;
-    // }
-
+    //TODO
+    /*
+    if (blockIdx.x == 0 && tid == 0) {
+        float globalMin = 1e10f;
+        for (int i = 0; i < 256; i++) {
+            globalMin = fminf(globalMin, out[i]);
+        }
+        out[0] = globalMin;
+    }
+    */
 
 }
