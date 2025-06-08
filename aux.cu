@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <math.h>
-#define GRID_SIZE 2110
+#define GRID_SIZE 22
 #define PI 3.14159265358979323846f
 #define ROBOT_R 100.0f
 #define OBSTACLE_ANGLE (PI / 5)
@@ -298,7 +298,7 @@ extern "C" __global__ void find_best_pass_point(Point *field_poses,int en_count,
     __syncthreads();
     int tid = threadIdx.x;
     __shared__ float sharedVals[256];
-    float val = (idx < N) ? out[idx] : 1e10f;
+    float val = (idx < N) ? estimate_point_by_id(fld,field_poses[0],enemies,grid_dens,en_count,idx,N) : 1e10f;
     sharedVals[tid] = val;
     __syncthreads();
     for (int offset = blockDim.x / 2; offset > 0; offset >>= 1) {
