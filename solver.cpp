@@ -6,8 +6,8 @@ using namespace std::chrono;
 
 double Va[2] = {5, 5};
 double Vb[2] = {1, -12};
-double r[2] = {90, 40};
-double Am = 1;
+double r[2] = {180, 80};
+double Am = 1, Vmax = 13;
 
 double quadr(double *f, int n) {
     static double summ;
@@ -78,7 +78,7 @@ void num_jac(void (*f)(double*, int, double*), double *x, int n, double *jac, do
 }
 
 int newton(void (*jac)(void (*)(double*, int, double*), double*, int, double*, double*, double), void (*f)(double*, int, double*), 
-    double *x, int n, double tol = 1e-8, int max_iter = 100, double d = 1e-6) {
+    double *x, int n, double tol = 1e-8, int max_iter = 1000, double d = 1e-10) {
     static int i, j;
     static bool flag;
     double jacobian[n * n], fx[n], dx[n];
@@ -103,23 +103,38 @@ int newton(void (*jac)(void (*)(double*, int, double*), double*, int, double*, d
     return 0;
 }
 
-void func1(double *x, int n, double *fx) {
+void func1(double *Vm, int n, double *fx) {
     static double ma, mb;
-    ma = sqrt((Va[0] - x[0]) * (Va[0] - x[0]) + (Va[1] - x[1]) * (Va[1] - x[1]));
-    mb = sqrt((Vb[0] - x[0]) * (Vb[0] - x[0]) + (Vb[1] - x[1]) * (Vb[1] - x[1]));
-    fx[0] = 2 * Am * r[0] - (x[0] + Va[0]) * ma - (x[0] + Vb[0]) * mb;
-    fx[1] = 2 * Am * r[1] - (x[1] + Va[1]) * ma - (x[1] + Vb[1]) * mb;
+    ma = sqrt((Va[0] - Vm[0]) * (Va[0] - Vm[0]) + (Va[1] - Vm[1]) * (Va[1] - Vm[1]));
+    mb = sqrt((Vb[0] - Vm[0]) * (Vb[0] - Vm[0]) + (Vb[1] - Vm[1]) * (Vb[1] - Vm[1]));
+    fx[0] = 2 * Am * r[0] - (Vm[0] + Va[0]) * ma - (Vm[0] + Vb[0]) * mb;
+    fx[1] = 2 * Am * r[1] - (Vm[1] + Va[1]) * ma - (Vm[1] + Vb[1]) * mb;
+}
+
+void func2(double *ang, int n, double *fx) {
+    static double Vm[2], lhs[2], ma, mb, ln;
+    Vm[0] = cos(ang[0]) * Vmax;
+    Vm[1] = sin(ang[0]) * Vmax;
+    ma = sqrt((Va[0] - Vm[0]) * (Va[0] - Vm[0]) + (Va[1] - Vm[1]) * (Va[1] - Vm[1]));
+    mb = sqrt((Vb[0] - Vm[0]) * (Vb[0] - Vm[0]) + (Vb[1] - Vm[1]) * (Vb[1] - Vm[1]));
+    lhs[0] = 2 * Am * r[0] - (Vm[0] + Va[0]) * ma - (Vm[0] + Vb[0]) * mb;
+    lhs[1] = 2 * Am * r[1] - (Vm[1] + Va[1]) * ma - (Vm[1] + Vb[1]) * mb;
+    // cout << lhs[0] << " " << lhs[1] << " " << Vm[0] << " " << Vm[1] << " " << ma << " " << mb << endl;
+    ln = sqrt(lhs[0] * lhs[0] + lhs[1] * lhs[1]);
+    fx[0] = (lhs[0] * Vm[0] + lhs[1] * Vm[1]) / ln / Vmax - 1;
 }
 
 int main() {
-    double x[2];
+    double x[1], fx[1];
     int g;
     x[0] = 0.5;
-    x[1] = 0.5;
-    high_resolution_clock::time_point start = high_resolution_clock::now();
-    g = newton(num_jac, func1, x, 2);
-    high_resolution_clock::time_point end = high_resolution_clock::now();
+    high_resolution_clock::time_point start, end;
+    start = high_resolution_clock::now();
+    g = newton(num_jac, func2, x, 1);
+    end = high_resolution_clock::now();
+    // x[0] = 0.9301568129232883;
+    func2(x, 1, fx);
     duration<double, micro> duration_us = duration_cast<duration<double, micro>>(end - start);
-    cout << "Привет, Code Runner! " << x[0] << " " << x[1] << " ошибка " << g << " время " << duration_us.count() << endl;
+    cout << "Привет, Code Runner! " << x[0] << " " << fx[0] << " " << " ошибка " << g << " время " << duration_us.count() << endl;
     return 0;
 }
