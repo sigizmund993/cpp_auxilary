@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 FIELD_DX = 4500
 FIELD_DY = 3000
-grid_dens = 100
+grid_dens = 10
 ball_pos = aux.Point(100,100)
 enemies_poses = [aux.Point(120,1410),aux.Point(2800,-2210),aux.Point(1223,-93),aux.Point(2939,-229),aux.Point(-294.-1211),aux.Point(-1032,-2420)]
 out_size = int(FIELD_DX*2/grid_dens*FIELD_DY*2/grid_dens)
@@ -49,14 +49,16 @@ print(end_time-start_time)
 
 
 fig, ax = plt.subplots()
-for i,x in enumerate(out):
-    if(i>44):
-        c = (-x+7)/15
-        ax.plot(grid_dens * (i % int(FIELD_DX*2 / grid_dens))-FIELD_DX, grid_dens * int(i / int(FIELD_DX*2 / grid_dens))-FIELD_DY, marker='o', color=[c,c,c])
+if(grid_dens>=50):
+    for i,x in enumerate(out):
+        if(i>grid_size*2):
+            c = (-x+7)/15
+            ax.plot(grid_dens * (i % int(FIELD_DX*2 / grid_dens))-FIELD_DX, grid_dens * int(i / int(FIELD_DX*2 / grid_dens))-FIELD_DY, marker='o', color=[c,c,c])
 for en in enemies_poses:
     ax.plot(en.x,en.y,marker = 'o',color = 'r')    
 ax.plot(ball_pos.x,ball_pos.y,marker = 'o',color = 'g')
 ax.plot(minPos.x,minPos.y,marker = 'o',color = 'b')
+# ax.plot(1780,1510,marker = 'o',color = 'lightblue')
 rect = patches.Rectangle((-FIELD_DX, -FIELD_DY), FIELD_DX*2, FIELD_DY*2, linewidth=2, edgecolor='blue', facecolor='lightblue')
 ax.add_patch(rect)
 ax.set_aspect('equal', adjustable='box')
@@ -66,3 +68,9 @@ ax.grid(True)
 plt.xlabel('Ось X')
 plt.ylabel('Ось Y')
 plt.show()
+"""
+grid_dens, mm | time, ms
+    100       |   ~1
+     10       |   ~3
+
+"""
