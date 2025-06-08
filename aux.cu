@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <math.h>
-#define GRID_SIZE 22
+#define GRID_SIZE 2110
 #define PI 3.14159265358979323846f
 #define ROBOT_R 100.0f
 #define OBSTACLE_ANGLE (PI / 5)
@@ -298,19 +298,46 @@ extern "C" __global__ void find_best_pass_point(Point *field_poses,int en_count,
     __syncthreads();
     int tid = threadIdx.x;
     __shared__ float sharedVals[256];
+    __shared__ int sharedIdx[256];
     float val = (idx < N) ? estimate_point_by_id(fld,field_poses[0],enemies,grid_dens,en_count,idx,N) : 1e10f;
     sharedVals[tid] = val;
+    sharedIdx[tid] = idx;
+    float curMin;
     __syncthreads();
     for (int offset = blockDim.x / 2; offset > 0; offset >>= 1) {
         if (tid < offset) {
-            sharedVals[tid] = fminf(sharedVals[tid], sharedVals[tid + offset]);
+            if (sharedVals[tid + offset] < sharedVals[tid]) {
+                sharedVals[tid] = sharedVals[tid + offset];
+                sharedIdx[tid] = sharedIdx[tid + offset];
+            }
         }
         __syncthreads();
     }
     if (tid == 0) {
         out[blockIdx.x] = sharedVals[0];
-        out[blockIdx.x*2] = idx;
+        out[blockIdx.x*2] = sharedIdx[0];
+        // printf("%i\n",idx);
     }
+    // __syncthreads();
+    // float minVals[45];
+    // int minIds[45];
+    // if(blockIdx.x<=45 and tid == 0)
+    // {
+    //     float minV = 1e10f;
+    //     int minId = -1;
+    //     for(int i = 0;i<45;i++)
+    //     {
+    //         if(out[i+45*blockIdx.x]<minV)
+    //         {
+    //             minV = out[i+45*blockIdx.x];
+    //             minId = idx;
+    //         }
+    //     }   
+    //     printf("%i\n",minId);
+    //     minVals[blockIdx.x] = minV;
+    //     minIds[blockIdx.x] = minId;
+    // }
+
 
     // Поток 0 блока 0 ищет глобальный минимум среди всех блоков
     //TODO

@@ -31,7 +31,7 @@ out_gpu = cuda.mem_alloc(out_size * np.float32().nbytes)
 cuda.memcpy_htod(field_poses_gpu, field_poses_n)
 block_size = 256
 grid_size = (N + block_size - 1) // block_size
-# print(grid_size)
+print(grid_size)
 find_pass_point(field_poses_gpu,np.int32(len(enemies_poses)),np.int32(grid_dens),out_gpu, np.int32(N), block=(256, 1, 1), grid=(grid_size, 1))
 out = np.zeros(out_size , dtype=np.float32)
 cuda.memcpy_dtoh(out, out_gpu)
@@ -63,8 +63,8 @@ minCpuPos = aux.Point(grid_dens * (minId % int(FIELD_DX*2 / grid_dens))-FIELD_DX
 for en in enemies_poses:
     ax.plot(en.x,en.y,marker = 'o',color = 'r')    
 ax.plot(ball_pos.x,ball_pos.y,marker = 'o',color = 'g')
-ax.plot(1780,1510,marker = 'o',color = 'b')
-# ax.plot(minCpuPos.x,minCpuPos.y,marker = 'o',color = 'lightblue')
+ax.plot(minPos.x,minPos.y,marker = 'o',color = 'b')
+ax.plot(minCpuPos.x,minCpuPos.y,marker = 'o',color = 'lightblue')
 # ax.plot(1780,1510,marker = 'o',color = 'lightblue')
 rect = patches.Rectangle((-FIELD_DX, -FIELD_DY), FIELD_DX*2, FIELD_DY*2, linewidth=2, edgecolor='blue', facecolor='none')
 ax.add_patch(rect)
