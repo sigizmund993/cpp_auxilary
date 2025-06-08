@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <math.h>
-#define GRID_SIZE 2110
+#define GRID_SIZE 85
 #define PI 3.14159265358979323846f
 #define ROBOT_R 100.0f
 #define OBSTACLE_ANGLE (PI / 5)
@@ -277,91 +277,64 @@ __host__ __device__ float estimate_point(Field fld, Point point, Point kick_poin
     estimate_shoot(point, fld, enemies, en_n) - estimate_dist_to_enemy(point, enemies, en_n));
 
 }
-__device__ float globVals[GRID_SIZE];
-__device__ int globX[GRID_SIZE];
-__device__ int globY[GRID_SIZE];
-//extern "C" __global__ void find_best_pass_point(float *field_info,Point *enemies, int en_count, Point kick_point,int grid_dens, float *out, int N)
-// extern "C" __global__ void find_best_pass_point(float *field_info, Point *field_poses,int en_count, int grid_dens, float *out, int N)
-extern "C" __global__ void find_best_pass_point(Point *field_poses,int en_count, int grid_dens, float *out, int N)
+__host__ __device__ float estimate_point_by_id(Field fld, Point kick_point, Point *enemies,int grid_dens, int en_n,int idx,int N)
 {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    for(int i = 0;i<GRID_SIZE;i++){
-        globVals[i] = 1e10f;
-    }
-    __shared__ float localVals[256];
-    __shared__ int localX[256];
-    __shared__ int localY[256];
-    float curVal = 1e10f;
-    int curX = -1, curY = -1;
-    Field fld = Field(
-        // field_info[0],
-        // field_info[1],
-        // field_info[2],
-        // field_info[3],
-        // field_info[4],
-        // field_info[5]
-    );
-    Point enemies[MAX_ENEMIES_COUNT];
-    for(int i = 0;i<MAX_ENEMIES_COUNT;i++)
-        enemies[i] = field_poses[i+1];
+
     if(idx < N)
     {
         Point cur_pos(
             grid_dens * (idx % int(FIELD_DX*2 / grid_dens))-FIELD_DX,
             grid_dens * int(idx / int(FIELD_DX*2 / grid_dens))-FIELD_DY//field_info[0]*2 - размер поля по x
         );
-        curVal = estimate_point(fld,cur_pos,field_poses[0],enemies,en_count);
-        curX = cur_pos.x;
-        curY = cur_pos.y;
+        return estimate_point(fld,cur_pos,kick_point,enemies,en_n);
     }
-    localVals[threadIdx.x] = curVal;
-    localX[threadIdx.x] = curX;
-    localY[threadIdx.x] = curY;
+    return 1e10f;
+}
+// __host__ __device__ float min_in_mas()
+extern "C" __global__ void find_best_pass_point(Point *field_poses,int en_count, int grid_dens, float *out, int N)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    Field fld = Field();
+    Point enemies[MAX_ENEMIES_COUNT];
+    for(int i = 0;i<MAX_ENEMIES_COUNT;i++)
+        enemies[i] = field_poses[i+1];
+    out[idx] = estimate_point_by_id(fld,field_poses[0],enemies,grid_dens,en_count,idx,N);
+
     __syncthreads();
-    if (threadIdx.x == 0) {
-        float minV = 1e10f;
-        int minX = -1, minY = -1;
-        for (int i = 0; i < blockDim.x; i++) {
-            if (localVals[i] < minV) {
-                minV = localVals[i];
-                minX = localX[i];
-                minY = localY[i];
-            }
-        }
-        globVals[blockIdx.x] = minV;
-        globX[blockIdx.x] = minX;
-        globY[blockIdx.x] = minY;
-    }
+    int tid = threadIdx.x;
+
+    // Shared memory для нахождения минимума внутри блока
+    __shared__ float sharedVals[256];  // 256 — максимальный размер блока
+
+    // Инициализация локального значения
+    float val = (idx < N) ? out[idx] : 1e10f;
+    sharedVals[tid] = val;
+
     __syncthreads();
-    if(idx == 0)
-    {
-        float minV = 1e10f;
-        int minX = -1, minY = -1;
-        for (int i = 0; i < GRID_SIZE; i++) {
-            if (globVals[i] < minV) {
-                minV = globVals[i];
-                minX = globX[i];
-                minY = globY[i];
-            }
+
+    // Редукция для нахождения минимума в блоке
+    for (int offset = blockDim.x / 2; offset > 0; offset >>= 1) {
+        if (tid < offset) {
+            sharedVals[tid] = fminf(sharedVals[tid], sharedVals[tid + offset]);
         }
-        // printf("end min Val: %f at %i, %i\n",minV,minX,minY);
-        // printf("%f",estimate_point(fld,Point(8990,30),field_poses[0],enemies,en_count));
-        out[0] = minX;
-        out[1] = minY;
-        out[2] = minV;
-        // minV = 1e10f;
-        // minX = -1;
-        // minY = -1;
-        // for (int i = 0; i < GRID_SIZE; i++) {
-        //     if (globVals[i] < minV && globVals[i]!=out[2]){// && sqrtf((out[0]-globX[i])*(out[0]-globX[i])+(out[1]-globY[i])*(out[1]-globY[i]))>1000) {
-        //         minV = globVals[i];
-        //         minX = globX[i];
-        //         minY = globY[i];
-        //     }
-        // }
-        // out[3] = minX;
-        // out[4] = minY;
-        // out[5] = minV;
+        __syncthreads();
     }
+
+    // Поток 0 блока записывает минимум блока в глобальный массив
+    if (tid == 0) {
+        // printf("z");
+        out[blockIdx.x] = sharedVals[0];
+        out[blockIdx.x*2] = idx;
+    }
+
+    // Поток 0 блока 0 ищет глобальный минимум среди всех блоков
+    // if (blockIdx.x == 0 && tid == 0) {
+    //     float globalMin = 1e10f;
+    //     for (int i = 0; i < 256; i++) {
+    //         globalMin = fminf(globalMin, out[i]);
+    //     }
+    //     out[0] = globalMin;
+    // }
+
 
 }
