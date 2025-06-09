@@ -6,7 +6,7 @@ using namespace std::chrono;
 
 double Va[2] = {5, 5};
 double Vb[2] = {1, -12};
-double r[2] = {180, 80};
+double r[2] = {90, 40};
 double Am = 1, Vmax = 13;
 
 double quadr(double *f, int n) {
@@ -78,12 +78,28 @@ void num_jac(void (*f)(double*, int, double*), double *x, int n, double *jac, do
 }
 
 int newton(void (*jac)(void (*)(double*, int, double*), double*, int, double*, double*, double), void (*f)(double*, int, double*), 
-    double *x, int n, double tol = 1e-8, int max_iter = 1000, double d = 1e-10) {
+    double *x, int n, double tol = 1e-10, int max_iter = 1000, double d = 1e-8) {
     static int i, j;
     static bool flag;
     double jacobian[n * n], fx[n], dx[n];
+    // static high_resolution_clock::time_point start, end;
+    // cout << "start " << x[0] << endl;
     for(i = 0; i < max_iter; i++) {
+        // start = high_resolution_clock::now();
         jac(f, x, n, jacobian, fx, d);
+        // cout << "jac " << jacobian[0] << endl;
+        flag = false;
+        for(j = 0; j < n * n; j++) {
+            if(jacobian[j] == 0) {
+                flag = true;
+                cout << "flag" << endl;
+                break;
+            }
+        }
+        if(flag) {
+            jac(f, x, n, jacobian, fx, -d);
+            // cout << "jac " << jacobian[0] << endl;
+        }
         flag = true;
         for(j = 0; j < n; j++) {
             if(abs(fx[j]) > tol) {
@@ -99,6 +115,10 @@ int newton(void (*jac)(void (*)(double*, int, double*), double*, int, double*, d
         for(j = 0; j < n; j++) {
             x[j] -= dx[j];
         }
+        // end = high_resolution_clock::now();
+        // duration<double, micro> duration_us = duration_cast<duration<double, micro>>(end - start);
+        // cout << "time " << duration_us.count() << endl;
+        // cout << x[0] << endl;
     }
     return 0;
 }
@@ -113,6 +133,8 @@ void func1(double *Vm, int n, double *fx) {
 
 void func2(double *ang, int n, double *fx) {
     static double Vm[2], lhs[2], ma, mb, ln;
+    // static high_resolution_clock::time_point start, end;
+    // start = high_resolution_clock::now();
     Vm[0] = cos(ang[0]) * Vmax;
     Vm[1] = sin(ang[0]) * Vmax;
     ma = sqrt((Va[0] - Vm[0]) * (Va[0] - Vm[0]) + (Va[1] - Vm[1]) * (Va[1] - Vm[1]));
@@ -121,20 +143,26 @@ void func2(double *ang, int n, double *fx) {
     lhs[1] = 2 * Am * r[1] - (Vm[1] + Va[1]) * ma - (Vm[1] + Vb[1]) * mb;
     // cout << lhs[0] << " " << lhs[1] << " " << Vm[0] << " " << Vm[1] << " " << ma << " " << mb << endl;
     ln = sqrt(lhs[0] * lhs[0] + lhs[1] * lhs[1]);
-    fx[0] = (lhs[0] * Vm[0] + lhs[1] * Vm[1]) / ln / Vmax - 1;
+    fx[0] = acos((lhs[0] * Vm[0] + lhs[1] * Vm[1]) / ln / Vmax);
+    // end = high_resolution_clock::now();
+    // duration<double, micro> duration_us = duration_cast<duration<double, micro>>(end - start);
+    // cout << "time " << duration_us.count() << endl;
 }
 
 int main() {
-    double x[1], fx[1];
+    double x[2], fx[2];
     int g;
     x[0] = 0.5;
+    x[1] = 0.5;
+    //func2(x, 1, fx);
+    func1(x, 2, fx);
     high_resolution_clock::time_point start, end;
     start = high_resolution_clock::now();
-    g = newton(num_jac, func2, x, 1);
+    g = newton(num_jac, func1, x, 2);
     end = high_resolution_clock::now();
     // x[0] = 0.9301568129232883;
     func2(x, 1, fx);
     duration<double, micro> duration_us = duration_cast<duration<double, micro>>(end - start);
-    cout << "Привет, Code Runner! " << x[0] << " " << fx[0] << " " << " ошибка " << g << " время " << duration_us.count() << endl;
+    cout << "Result " << x[0] << " " << x[1] << " error type (2 - ok, 1 - error with 0 jac / numjac, 0 - steps max count) " << g << " время " << duration_us.count() << endl;
     return 0;
 }
