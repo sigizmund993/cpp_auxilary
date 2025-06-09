@@ -155,19 +155,25 @@ void bangbang(double *start, double *end, double *r, double Amax, double Vmax, d
     Vm[0] = r[0] / rn * Vmax;
     Vm[1] = r[1] / rn * Vmax;
     g = newton(num_jac, func1, args, Vm, 2, 1e-7);
-    cout << "Res 1 stage " << Vm[0] << " " << Vm[1] << " status (2 - ok, 1 - jac err, 0 - iter err) " << g << endl;
+    // cout << "Res 1 stage " << Vm[0] << " " << Vm[1] << " status (2 - ok, 1 - jac err, 0 - iter err) " << g << endl;
     if(sqrt(Vm[0] * Vm[0] + Vm[1] * Vm[1]) > Vmax) {
         angle[0] = atan2(r[1], r[0]);
-        cout << "Vm > Vmax" << endl;
+        // cout << "Vm > Vmax" << endl;
         g = newton(num_jac, func2, args, angle, 1);
         Vm[0] = cos(angle[0]) * Vmax;
         Vm[1] = sin(angle[0]) * Vmax;
-        cout << "Res 2 stage " << angle[0] << " " << Vm[0] <<  " " << Vm[1] << " status (2 - ok, 1 - jac err, 0 - iter err) " << g << endl;
+        // cout << "Res 2 stage " << angle[0] << " " << Vm[0] <<  " " << Vm[1] << " status (2 - ok, 1 - jac err, 0 - iter err) " << g << endl;
     }
 }
 
 int main() {
-    double Vm[2];
+    double Vm[2], Va[2] = {0, 0}, Vb[2] = {0, 0}, r[2] = {200, 200}, Amax = 1, Vmax = 13;
+    high_resolution_clock::time_point start, end;
     bangbang(Va, Vb, r, Amax, Vmax, Vm);
+    start = high_resolution_clock::now();
+    bangbang(Va, Vb, r, Amax, Vmax, Vm);
+    end = high_resolution_clock::now();
+    duration<double, micro> duration_us = duration_cast<duration<double, micro>>(end - start);
+    cout << "time " << duration_us.count() << " val " << Vm[0] << " " << Vm[1] << endl;
     return 0;
 }
