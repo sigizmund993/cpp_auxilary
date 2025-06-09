@@ -6,16 +6,16 @@ using namespace std::chrono;
 
 double Va[2] = {5, 5};
 double Vb[2] = {1, -12};
-double r[2] = {90, 40};
-double Am = 1, Vmax = 13;
+double r[2] = {180, 80};
+double Amax = 1, Vmax = 13;
 
-double quadr(double *f, int n) {
+double deltares(double *f, int n) {
     static double summ;
     summ = 0;
     for(int i = 0; i < n; i++) {
         summ += f[i] * f[i];
     }
-    return summ;
+    return sqrt(summ);
 }
 
 int gauss_sovle(double *a, double *b, int n, double *x) {
@@ -63,13 +63,13 @@ int gauss_sovle(double *a, double *b, int n, double *x) {
     return 1;
 }
 
-void num_jac(void (*f)(double*, int, double*), double *x, int n, double *jac, double *f0, double d) {
+void num_jac(void (*f)(double*, double*, double*), double *x, double *jac, double *args, double *f0, int n, double d) {
     static int i, j;
     double f1[n];
-    f(x, n, f0);
+    f(x, args, f0);
     for(i = 0; i < n; i++) {
         x[i] += d;
-        f(x, n, f1);
+        f(x, args, f1);
         x[i] -= d;
         for(j = 0; j < n; j++) {
             jac[j * n + i] = (f1[j] - f0[j]) / d;
@@ -77,8 +77,8 @@ void num_jac(void (*f)(double*, int, double*), double *x, int n, double *jac, do
     }
 }
 
-int newton(void (*jac)(void (*)(double*, int, double*), double*, int, double*, double*, double), void (*f)(double*, int, double*), 
-    double *x, int n, double tol = 1e-10, int max_iter = 1000, double d = 1e-8) {
+int newton(void (*jac)(void (*)(double*, double*, double*), double*, double*, double*, double*, int, double), 
+    void (*f)(double*, double*, double*), double *args, double *x, int n, double tol = 1e-10, int max_iter = 1000, double d = 1e-8) {
     static int i, j;
     static bool flag;
     double jacobian[n * n], fx[n], dx[n];
@@ -86,7 +86,7 @@ int newton(void (*jac)(void (*)(double*, int, double*), double*, int, double*, d
     // cout << "start " << x[0] << endl;
     for(i = 0; i < max_iter; i++) {
         // start = high_resolution_clock::now();
-        jac(f, x, n, jacobian, fx, d);
+        jac(f, x, jacobian, args, fx, n, d);
         // cout << "jac " << jacobian[0] << endl;
         flag = false;
         for(j = 0; j < n * n; j++) {
@@ -97,7 +97,7 @@ int newton(void (*jac)(void (*)(double*, int, double*), double*, int, double*, d
             }
         }
         if(flag) {
-            jac(f, x, n, jacobian, fx, -d);
+            jac(f, x, jacobian, args, fx, n, -d);
             // cout << "jac " << jacobian[0] << endl;
         }
         flag = true;
@@ -123,46 +123,51 @@ int newton(void (*jac)(void (*)(double*, int, double*), double*, int, double*, d
     return 0;
 }
 
-void func1(double *Vm, int n, double *fx) {
+void func1(double *Vm, double *args, double *fx) {
     static double ma, mb;
-    ma = sqrt((Va[0] - Vm[0]) * (Va[0] - Vm[0]) + (Va[1] - Vm[1]) * (Va[1] - Vm[1]));
-    mb = sqrt((Vb[0] - Vm[0]) * (Vb[0] - Vm[0]) + (Vb[1] - Vm[1]) * (Vb[1] - Vm[1]));
-    fx[0] = 2 * Am * r[0] - (Vm[0] + Va[0]) * ma - (Vm[0] + Vb[0]) * mb;
-    fx[1] = 2 * Am * r[1] - (Vm[1] + Va[1]) * ma - (Vm[1] + Vb[1]) * mb;
+    ma = sqrt((args[0] - Vm[0]) * (args[0] - Vm[0]) + (args[1] - Vm[1]) * (args[1] - Vm[1]));
+    mb = sqrt((args[2] - Vm[0]) * (args[2] - Vm[0]) + (args[3] - Vm[1]) * (args[3] - Vm[1]));
+    fx[0] = 2 * args[6] * args[4] - (Vm[0] + args[0]) * ma - (Vm[0] + args[2]) * mb;
+    fx[1] = 2 * args[6] * args[5] - (Vm[1] + args[1]) * ma - (Vm[1] + args[3]) * mb;
 }
 
-void func2(double *ang, int n, double *fx) {
+void func2(double *ang, double *args, double *fx) {
     static double Vm[2], lhs[2], ma, mb, ln;
     // static high_resolution_clock::time_point start, end;
     // start = high_resolution_clock::now();
-    Vm[0] = cos(ang[0]) * Vmax;
-    Vm[1] = sin(ang[0]) * Vmax;
-    ma = sqrt((Va[0] - Vm[0]) * (Va[0] - Vm[0]) + (Va[1] - Vm[1]) * (Va[1] - Vm[1]));
-    mb = sqrt((Vb[0] - Vm[0]) * (Vb[0] - Vm[0]) + (Vb[1] - Vm[1]) * (Vb[1] - Vm[1]));
-    lhs[0] = 2 * Am * r[0] - (Vm[0] + Va[0]) * ma - (Vm[0] + Vb[0]) * mb;
-    lhs[1] = 2 * Am * r[1] - (Vm[1] + Va[1]) * ma - (Vm[1] + Vb[1]) * mb;
+    Vm[0] = cos(ang[0]) * args[7];
+    Vm[1] = sin(ang[0]) * args[7];
+    ma = sqrt((args[0] - Vm[0]) * (args[0] - Vm[0]) + (args[1] - Vm[1]) * (args[1] - Vm[1]));
+    mb = sqrt((args[2] - Vm[0]) * (args[2] - Vm[0]) + (args[3] - Vm[1]) * (args[3] - Vm[1]));
+    lhs[0] = 2 * args[6] * args[4] - (Vm[0] + args[0]) * ma - (Vm[0] + args[2]) * mb;
+    lhs[1] = 2 * args[6] * args[5] - (Vm[1] + args[1]) * ma - (Vm[1] + args[3]) * mb;
     // cout << lhs[0] << " " << lhs[1] << " " << Vm[0] << " " << Vm[1] << " " << ma << " " << mb << endl;
     ln = sqrt(lhs[0] * lhs[0] + lhs[1] * lhs[1]);
-    fx[0] = acos((lhs[0] * Vm[0] + lhs[1] * Vm[1]) / ln / Vmax);
+    fx[0] = acos((lhs[0] * Vm[0] + lhs[1] * Vm[1]) / ln / args[7]);
     // end = high_resolution_clock::now();
     // duration<double, micro> duration_us = duration_cast<duration<double, micro>>(end - start);
     // cout << "time " << duration_us.count() << endl;
 }
 
+void bangbang(double *start, double *end, double *r, double Amax, double Vmax, double *Vm) { // gang-bang
+    static double args[8] = {start[0], start[1], end[0], end[1], r[0], r[1], Amax, Vmax}, fx[2], angle[1], rn = sqrt(r[0] * r[0] + r[1] * r[1]);
+    static int g;
+    Vm[0] = r[0] / rn * Vmax;
+    Vm[1] = r[1] / rn * Vmax;
+    g = newton(num_jac, func1, args, Vm, 2, 1e-7);
+    cout << "Res 1 stage " << Vm[0] << " " << Vm[1] << " status (2 - ok, 1 - jac err, 0 - iter err) " << g << endl;
+    if(sqrt(Vm[0] * Vm[0] + Vm[1] * Vm[1]) > Vmax) {
+        angle[0] = atan2(r[1], r[0]);
+        cout << "Vm > Vmax" << endl;
+        g = newton(num_jac, func2, args, angle, 1);
+        Vm[0] = cos(angle[0]) * Vmax;
+        Vm[1] = sin(angle[0]) * Vmax;
+        cout << "Res 2 stage " << angle[0] << " " << Vm[0] <<  " " << Vm[1] << " status (2 - ok, 1 - jac err, 0 - iter err) " << g << endl;
+    }
+}
+
 int main() {
-    double x[2], fx[2];
-    int g;
-    x[0] = 0.5;
-    x[1] = 0.5;
-    //func2(x, 1, fx);
-    func1(x, 2, fx);
-    high_resolution_clock::time_point start, end;
-    start = high_resolution_clock::now();
-    g = newton(num_jac, func1, x, 2);
-    end = high_resolution_clock::now();
-    // x[0] = 0.9301568129232883;
-    func2(x, 1, fx);
-    duration<double, micro> duration_us = duration_cast<duration<double, micro>>(end - start);
-    cout << "Result " << x[0] << " " << x[1] << " error type (2 - ok, 1 - error with 0 jac / numjac, 0 - steps max count) " << g << " время " << duration_us.count() << endl;
+    double Vm[2];
+    bangbang(Va, Vb, r, Amax, Vmax, Vm);
     return 0;
 }
