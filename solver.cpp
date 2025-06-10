@@ -1,12 +1,15 @@
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <vector>
 #include <iostream>
 #include <cmath>
 #include <chrono>
 using namespace std;
 using namespace std::chrono;
 
-double Va[2] = {5, 5};
-double Vb[2] = {1, -12};
-double r[2] = {180, 80};
+vector<double> Va = {5, 5};
+vector<double> Vb = {1, -12};
+vector<double> r = {180, 80};
 double Amax = 1, Vmax = 13;
 
 double deltares(double *f, int n) {
@@ -149,9 +152,10 @@ void func2(double *ang, double *args, double *fx) {
     // cout << "time " << duration_us.count() << endl;
 }
 
-void bangbang(double *start, double *end, double *r, double Amax, double Vmax, double *Vm) { // gang-bang
-    static double args[8] = {start[0], start[1], end[0], end[1], r[0], r[1], Amax, Vmax}, fx[2], angle[1], rn = sqrt(r[0] * r[0] + r[1] * r[1]);
+vector<double> bangbang(vector<double> start, vector<double> end, vector<double> r, double Amax, double Vmax) { // gang-bang
+    static double args[8] = {start[0], start[1], end[0], end[1], r[0], r[1], Amax, Vmax}, fx[2], angle[1], rn = sqrt(r[0] * r[0] + r[1] * r[1]), Vm[2];
     static int g;
+    static vector<double> res = {0, 0};
     Vm[0] = r[0] / rn * Vmax;
     Vm[1] = r[1] / rn * Vmax;
     g = newton(num_jac, func1, args, Vm, 2, 1e-7);
@@ -164,16 +168,23 @@ void bangbang(double *start, double *end, double *r, double Amax, double Vmax, d
         Vm[1] = sin(angle[0]) * Vmax;
         // cout << "Res 2 stage " << angle[0] << " " << Vm[0] <<  " " << Vm[1] << " status (2 - ok, 1 - jac err, 0 - iter err) " << g << endl;
     }
+    res[0] = Vm[0];
+    res[1] = Vm[1];
+    return res;
+}
+
+PYBIND11_MODULE(solver, m) {
+    m.def("bangbang", &bangbang, "гэнгбэнг, хуле");
 }
 
 int main() {
-    double Vm[2], Va[2] = {0, 0}, Vb[2] = {0, 0}, r[2] = {200, 200}, Amax = 1, Vmax = 13;
-    high_resolution_clock::time_point start, end;
-    bangbang(Va, Vb, r, Amax, Vmax, Vm);
+    static high_resolution_clock::time_point start, end;
+    vector<double> Vm = {0, 0};
+    Vm = bangbang(Va, Vb, r, Amax, Vmax);
     start = high_resolution_clock::now();
-    bangbang(Va, Vb, r, Amax, Vmax, Vm);
+    Vm = bangbang(Va, Vb, r, Amax, Vmax);
     end = high_resolution_clock::now();
     duration<double, micro> duration_us = duration_cast<duration<double, micro>>(end - start);
-    cout << "time " << duration_us.count() << " val " << Vm[0] << " " << Vm[1] << endl;
+    cout << Vm[0] << " " << Vm[1] << " time " << duration_us.count() << endl;
     return 0;
 }
