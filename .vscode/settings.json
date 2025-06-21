@@ -3,6 +3,8 @@
         "random": "cpp",
         "__config": "cpp",
         "chrono": "cpp",
-        "cmath": "cpp"
+        "cmath": "cpp",
+        "ratio": "cpp",
+        "iostream": "cpp"
     }
 }
