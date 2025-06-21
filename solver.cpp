@@ -12,7 +12,7 @@ vector<double> Vb = {0, -1350};
 vector<double> r = {-2600, -1460};
 vector<double> it = {0, 0};
 double Amax = 1000, Vmax = 1500;
-long testScore = 0;
+long testScore = 0, testNum = 0;
 
 int sgn(double a) {
     if(a > 0) return 1;
@@ -296,6 +296,7 @@ void test() {
                 for(p1 = 0; p1 <= Vmax; p1 += 100) {
                     for(a2 = 0; a2 < 2 * M_PI - 0.01; a2 += M_PI / 10) {
                         for(p2 = 0; p2 <= Vmax; p2 += 100) {
+                            testNum ++;
                             Va = {p1 * cos(a1), p1 * sin(a1)};
                             Vb = {p2 * cos(a2), p2 * sin(a2)};
                             r = {double(i), double(j)};
@@ -313,8 +314,8 @@ void test() {
     }
     end = high_resolution_clock::now();
     duration<double, micro> duration_us = duration_cast<duration<double, micro>>(end - start);
-    cout << "summ time in 39 690 000 tests (s) " << duration_us.count() / 1000000.0 << endl;
-    cout << "average time (mcs) " << duration_us.count() / 39690000.0 << endl;
+    cout << "summ time in " << testNum / 1000000 << " " << testNum % 1000000 / 1000 << " " << testNum % 1000 << " tests (s) " << duration_us.count() / 1000000.0 << endl;
+    cout << "average time (mcs) " << duration_us.count() / testNum << endl;
     cout << "test score " << testScore << endl;
 }
 
