@@ -5,10 +5,6 @@
 using namespace std;
 using namespace std::chrono;
 
-vector<double> Va = {650, -890};
-vector<double> Vb = {0, -1350};
-vector<double> r = {-2600, -1460};
-vector<double> it = {0, 0};
 double Amax = 1000, Vmax = 1500;
 long testScore = 0, testNum = 0;
 struct Point {
@@ -181,20 +177,6 @@ void jac2(void (*f)(double*, double*, double*), double *ang, double *jac, double
     dl[1] = -Vm[0] * ma - (Vm[1] + args[1]) * dma - Vm[0] * mb - (Vm[1] + args[3]) * dmb;
     jac[0] = -((-s2 * lhs[0] + c2 * dl[0] + c2 * lhs[1] + s2 * dl[1]) / ln - (lhs[0] * dl[0] + lhs[1] * dl[1]) * fx[0] / (ln * ln)); // / sqrt(1 - (fx[0]  * fx[0]));
     fx[0] = -fx[0] + 1;
-    // fx[0] = acos(fx[0]);
-
-    // static int i, j;
-    // double f1[n];
-    // f(ang, args, fx);
-    // for(i = 0; i < n; i++) {
-    //     ang[i] += d;
-    //     f(ang, args, f1);
-    //     ang[i] -= d;
-    //     for(j = 0; j < n; j++) {
-    //         jac[j * n + i] = (f1[j] - fx[j]) / d;
-    //     }
-    // }
-    // cout << "num " << ang[0] << ", " << fx[0] << ", " << jac[0] << endl;
 }
 
 int newton(void (*jac)(void (*)(double*, double*, double*), double*, double*, double*, double*, int, double), 
@@ -259,9 +241,6 @@ void func2(double *ang, double *args, double *fx) {
     // cout << lhs[0] << ", " << lhs[1] << ", " << Vm[0] << ", " << Vm[1] << ", " << ma << ", " << mb << endl;
     ln = sqrt(lhs[0] * lhs[0] + lhs[1] * lhs[1]);
     fx[0] = -(lhs[0] * Vm[0] + lhs[1] * Vm[1]) / ln / args[7] + 1;
-    // end = high_resolution_clock::now();
-    // duration<double, micro> duration_us = duration_cast<duration<double, micro>>(end - start);
-    // cout << "time " << duration_us.count() << endl;
 }
 void get_bb_vals(float t,Point r_start,Point v_start,Point r_end,Point v_end,float a_max,float v_max,Point v_m,Point *a_res,Point *v_res,Point *r_res,float *t_res)
 {

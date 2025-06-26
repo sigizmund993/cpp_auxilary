@@ -1,21 +1,5 @@
-#include <stdio.h>
-#include <math.h>
-#define GRID_SIZE 2110
-#define PI 3.14159265358979323846f
-#define ROBOT_R 100.0f
-#define OBSTACLE_ANGLE (PI / 5)
-#define GOAL_VIEW_ANGLE (PI / 4)
-#define DIST_TO_ENEMY 1500
-#define SHOOT_ANGLE (PI / 8)
-#define DANGER_ZONE_DIST 400
-#define MAX_ENEMIES_COUNT 6
-#define GOAL_DX 4500
-#define GOAL_DY 1000
-#define FIELD_DX 4500
-#define FIELD_DY 3000
-#define POLARITY 1
-#define ZONE_DX 1000
-#define ZONE_DY 2000
+// #include "point.h"
+
 struct Point {
     float x, y;
     __host__ __device__ Point() : x(0), y(0) {}
@@ -63,292 +47,246 @@ struct Point {
         return atan2f(y, x);
     }
 };
-struct Field {
-    Point hull[4];
-    Point enemy_hull[4], ally_hull[4];
-    Point enemy_goal[2], ally_goal[2];
-    __host__ __device__ Field() {
-        hull[0] = Point(FIELD_DX, FIELD_DY);
-        hull[1] = Point(FIELD_DX, -FIELD_DY);
-        hull[2] = Point(-FIELD_DX, -FIELD_DY);
-        hull[3] = Point(-FIELD_DX, FIELD_DY);
-        enemy_hull[0] = Point(FIELD_DX * POLARITY, ZONE_DY / 2);
-        enemy_hull[1] = Point(FIELD_DX * POLARITY, -ZONE_DY / 2);
-        enemy_hull[2] = Point((FIELD_DX - ZONE_DX) * POLARITY, -ZONE_DY / 2);
-        enemy_hull[3] = Point((FIELD_DX - ZONE_DX) * POLARITY, ZONE_DY / 2);
-        ally_hull[0] = Point(FIELD_DX * -POLARITY, ZONE_DY / 2);
-        ally_hull[1] = Point(FIELD_DX * -POLARITY, -ZONE_DY / 2);
-        ally_hull[2] = Point((FIELD_DX - ZONE_DX) * -POLARITY, -ZONE_DY / 2);
-        ally_hull[3] = Point((FIELD_DX - ZONE_DX) * -POLARITY, ZONE_DY / 2);
-        enemy_goal[0] = Point(GOAL_DX * POLARITY, GOAL_DY / 2);
-        enemy_goal[1] = Point(GOAL_DX * POLARITY, -GOAL_DY / 2);
-        ally_goal[0] = Point(GOAL_DX * -POLARITY, GOAL_DY / 2);
-        ally_goal[1] = Point(GOAL_DX * -POLARITY, -GOAL_DY / 2);
+__host__ __device__ int gauss_sovle(double *a, double *b, int n, double *x) {
+    static double maxV, val, k;
+    static int maxJ, i1, i2, i, j, p;
+    // a[0] = -1;
+    // a[1] = 1;
+    // a[2] = -2;
+    // a[3] = 2;
+    // b[0] = 1;
+    // b[1] = 1;
+    maxV = 0;
+    maxJ = 0;
+    for(i = 0; i < n; i++) {
+        maxJ = 0;
+        maxV = 0;
+        for(j = 0; j < n - i; j++) {
+            val = abs(a[(i + j) * n + i]);
+            if(val > maxV) {
+                maxV = val;
+                maxJ = j;
+            }
+        }
+        // cout << "jjjjjjj " << maxJ << endl;
+        if(maxV == 0) {
+            return 0;
+        }
+        if(maxJ != 0) {
+            i1 = (maxJ + i) * n + i;
+            i2 = i * n + i;
+            for(j = 0; j < n - i; j++) {
+                a[i1 + j] += a[i2 + j];
+                a[i2 + j] = a[i1 + j] - a[i2 + j];
+                a[i1 + j] -= a[i2 + j];
+            }
+            b[maxJ + i] += b[i];
+            b[i] = b[maxJ + i] - b[i];
+            b[maxJ + i] -= b[i];
+        }
+        // cout << "semen lobanov " << a[0] << ", " << a[1] << ", " << a[2] << ", " << a[3] << ", " << b[0] << ", " << b[1] << endl;
+        for(j = 1; j < n - i; j++) {
+            k = a[(i + j) * n + i] / a[i * n + i];
+            for(p = 1; p < n - i; p++) {
+                a[(i + j) * n + i + p] -= a[i * n + i + p] * k;
+            }
+            b[i + j] -= b[i] * k;
+        }
     }
-};
+    // cout << "pupupu " << a[0] << ", " << a[1] << ", " << a[2] << ", " << a[3] << ", " << b[0] << ", " << b[1] << endl;
+    for(i = n - 1; i >= 0; i--) {
+        for(j = n - 1; j > i; j--) {
+            b[i] -= a[i * n + j] * x[j];
+        }
+        if(a[i * n + i] == 0) {
+            // cout << "нашел пидора" << endl;
+            x[i] = 0;
+        }
+        else {
+            x[i] = b[i] / a[i * n + i];
+        }
+        
+    }
+    // cout << "gauss " << a[0] << ", " << b[0] << ", " << x[0] << endl;
+    return 1;
+}
+__host__ __device__ int newton(void (*jac)(void (*)(double*, double*, double*), double*, double*, double*, double*, int, double), 
+    void (*f)(double*, double*, double*), double *args, double *x, int n, double tol = 1e-7, int max_iter = 100, double d = 1e-7) {
+    static int i, j;
+    static bool flag;
+    double jacobian[n * n], fx[n], dx[n];
+    // cout << "start" << endl;
+    // static high_resolution_clock::time_point start, end;
+    // cout << "start " << x[0] << endl;
+    for(i = 0; i < max_iter; i++) {
+        // start = high_resolution_clock::now();
+        jac(f, x, jacobian, args, fx, n, d);
+        // if (n == 1) {
+        //     cout << x[0] << ", " << fx[0] << ", " << jacobian[0] << endl;
+        // }
+        flag = true;
+        for(j = 0; j < n; j++) {
+            if(abs(fx[j]) > tol) {
+                flag = false;
+            }
+        }
+        if(flag) {
+            return 2;
+        }
 
-__host__ __device__ int sign(float a) {
-    if (a > 0) return 1;
-    if (a < 0) return -1;
+        if(gauss_sovle(jacobian, fx, n, dx) == 0) {
+            // cout << "err with gauss solve (maybe something with zero jacobian)" << endl;
+            return 1;
+        }
+        // cout << "gauss " << dx[0] << endl;
+        for(j = 0; j < n; j++) {
+            x[j] -= dx[j]; 
+        }
+        // end = high_resolution_clock::now();
+        // duration<double, micro> duration_us = duration_cast<duration<double, micro>>(end - start);
+        // cout << "time " << duration_us.count() << endl;
+        // cout << x[0] << endl;
+    }
     return 0;
 }
-
-__host__ __device__ float wind_down_angle(float angle) {
-    if (fabsf(angle) > 2 * PI) {
-        angle = fmodf(angle, 2 * PI);
-    }
-    if (fabsf(angle) > PI) {
-        angle -= 2 * PI * sign(angle);
-    }
-    return angle;
+__host__ __device__ void jac1(void (*f)(double*, double*, double*), double *Vm, double *jac, double *args, double *fx, int n, double d) {
+    static double ma, mb;
+    ma = sqrt((args[0] - Vm[0]) * (args[0] - Vm[0]) + (args[1] - Vm[1]) * (args[1] - Vm[1]));
+    mb = sqrt((args[2] - Vm[0]) * (args[2] - Vm[0]) + (args[3] - Vm[1]) * (args[3] - Vm[1]));
+    fx[0] = 2 * args[6] * args[4] - (Vm[0] + args[0]) * ma - (Vm[0] + args[2]) * mb;
+    fx[1] = 2 * args[6] * args[5] - (Vm[1] + args[1]) * ma - (Vm[1] + args[3]) * mb;
+    jac[0] = -ma - (Vm[0] * Vm[0] - args[0] * args[0]) / ma - mb - (Vm[0] * Vm[0] - args[2] * args[2]) / mb;
+    jac[1] = -(Vm[0] + args[0]) * (Vm[1] - args[1]) / ma - (Vm[0] + args[2]) * (Vm[1] - args[3]) / mb;
+    jac[2] = -(Vm[1] + args[1]) * (Vm[0] - args[0]) / ma - (Vm[1] + args[3]) * (Vm[0] - args[2]) / mb;
+    jac[3] = -ma - (Vm[1] * Vm[1] - args[1] * args[1]) / ma - mb - (Vm[1] * Vm[1] - args[3] * args[3]) / mb;
+}
+__host__ __device__ void func1(double *Vm, double *args, double *fx) {
+    static double ma, mb;
+    ma = sqrt((args[0] - Vm[0]) * (args[0] - Vm[0]) + (args[1] - Vm[1]) * (args[1] - Vm[1]));
+    mb = sqrt((args[2] - Vm[0]) * (args[2] - Vm[0]) + (args[3] - Vm[1]) * (args[3] - Vm[1]));
+    // cout << "mamb " << ma << ", " << mb << ", " << (args[0] - Vm[0]) << ", " << (args[1] - Vm[1]) << endl;
+    fx[0] = 2 * args[6] * args[4] - (Vm[0] + args[0]) * ma - (Vm[0] + args[2]) * mb;
+    fx[1] = 2 * args[6] * args[5] - (Vm[1] + args[1]) * ma - (Vm[1] + args[3]) * mb;
+}
+__host__ __device__ void jac2(void (*f)(double*, double*, double*), double *ang, double *jac, double *args, double *fx, int n, double d) {
+    static double ma, mb, dma, dmb, lhs[2], dl[2], Vm[2], ln, c2, s2; //, tc2, ts2, tVm[2], tma, tmb, tlhs[2];
+    c2 = cos(ang[0]);
+    s2 = sin(ang[0]);
+    Vm[0] = c2 * args[7];
+    Vm[1] = s2 * args[7];
+    ma = sqrt((args[0] - Vm[0]) * (args[0] - Vm[0]) + (args[1] - Vm[1]) * (args[1] - Vm[1]));
+    mb = sqrt((args[2] - Vm[0]) * (args[2] - Vm[0]) + (args[3] - Vm[1]) * (args[3] - Vm[1]));
+    lhs[0] = 2 * args[6] * args[4] - (Vm[0] + args[0]) * ma - (Vm[0] + args[2]) * mb;
+    lhs[1] = 2 * args[6] * args[5] - (Vm[1] + args[1]) * ma - (Vm[1] + args[3]) * mb;
+    ln = sqrt(lhs[0] * lhs[0] + lhs[1] * lhs[1]);
+    fx[0] = (lhs[0] * c2 + lhs[1] * s2) / ln;
+    dma = (Vm[1] * args[0] - Vm[0] * args[1]) / ma;
+    dmb = (Vm[1] * args[2] - Vm[0] * args[3]) / mb;
+    dl[0] = Vm[1] * ma - (Vm[0] + args[0]) * dma + Vm[1] * mb - (Vm[0] + args[2]) * dmb;
+    dl[1] = -Vm[0] * ma - (Vm[1] + args[1]) * dma - Vm[0] * mb - (Vm[1] + args[3]) * dmb;
+    jac[0] = -((-s2 * lhs[0] + c2 * dl[0] + c2 * lhs[1] + s2 * dl[1]) / ln - (lhs[0] * dl[0] + lhs[1] * dl[1]) * fx[0] / (ln * ln)); // / sqrt(1 - (fx[0]  * fx[0]));
+    fx[0] = -fx[0] + 1;
+}
+__host__ __device__ void func2(double *ang, double *args, double *fx) {
+    static double Vm[2], lhs[2], ma, mb, ln;
+    // static high_resolution_clock::time_point start, end;
+    // start = high_resolution_clock::now();
+    Vm[0] = cos(ang[0]) * args[7];
+    Vm[1] = sin(ang[0]) * args[7];
+    ma = sqrt((args[0] - Vm[0]) * (args[0] - Vm[0]) + (args[1] - Vm[1]) * (args[1] - Vm[1]));
+    mb = sqrt((args[2] - Vm[0]) * (args[2] - Vm[0]) + (args[3] - Vm[1]) * (args[3] - Vm[1]));
+    lhs[0] = 2 * args[6] * args[4] - (Vm[0] + args[0]) * ma - (Vm[0] + args[2]) * mb;
+    lhs[1] = 2 * args[6] * args[5] - (Vm[1] + args[1]) * ma - (Vm[1] + args[3]) * mb;
+    // cout << lhs[0] << ", " << lhs[1] << ", " << Vm[0] << ", " << Vm[1] << ", " << ma << ", " << mb << endl;
+    ln = sqrt(lhs[0] * lhs[0] + lhs[1] * lhs[1]);
+    fx[0] = -(lhs[0] * Vm[0] + lhs[1] * Vm[1]) / ln / args[7] + 1;
 }
 
-__host__ __device__ float get_angle_between_points(Point a, Point b, Point c) {
-    return wind_down_angle((a - b).arg() - (c - b).arg());
-}
-
-__host__ __device__ void circles_inter(Point p0, Point p1, float r0, float r1, Point* out) {
-    float d = (p0 - p1).mag();
-    float a = (r0 * r0 - r1 * r1 + d * d) / (2 * d);
-    float h = sqrtf(r0 * r0 - a * a);
-    float x2 = p0.x + a * (p1.x - p0.x) / d;
-    float y2 = p0.y + a * (p1.y - p0.y) / d;
-    out[0].x = x2 + h * (p1.y - p0.y) / d;
-    out[0].y = y2 - h * (p1.x - p0.x) / d;
-    out[1].x = x2 - h * (p1.y - p0.y) / d;
-    out[1].y = y2 + h * (p1.x - p0.x) / d;
-}
-
-__host__ __device__ int get_tangent_points(Point point0, Point point1, float r, Point* out) {
-    float d = (point1 - point0).mag();
-    if (d < r) {
-        return 0;
-    }   
-
-    if (d == r) {
-        out[0] = point1;
-        return 1;
+__host__ __device__ Point bangbang(Point start, Point end, Point dr, double Amax, double Vmax, int nshort = 10, int nst = 10, int mult = 2, int barrier = 10000) { // gang-bang
+    static double args[8], angle[1], rn, Vm[2], zero, imin, vmin, vnow[1];
+    static int i, n;
+    args[0] = start.x;
+    args[1] = start.y;
+    args[2] = end.x;
+    args[3] = end.y;
+    args[4] = dr.x;
+    args[5] = dr.y;
+    args[6] = Amax;
+    args[7] = Vmax;
+    rn = sqrt(args[4] * args[4] + args[5] * args[5]);Vm[0] = args[4] / rn * Vmax;
+    Vm[1] = args[5] / rn * Vmax;
+    static Point res = {0, 0};
+    int g = 0;
+    zero = atan2(args[5], args[4]);
+    for(i = 0; g != 2 && i < nshort; i++) {
+        Vm[0] = cos(zero + 2 * M_PI * i / nshort) * Vmax;
+        Vm[1] = sin(zero + 2 * M_PI * i / nshort) * Vmax;
+        g = newton(jac1, func1, args, Vm, 2);
     }
-    circles_inter(point0, Point((point0.x + point1.x) / 2, (point0.y + point1.y) / 2), r, d / 2, out);
-    return 2;
-}
-
-__host__ __device__ Point closest_point_on_line(Point point1, Point point2, Point point, char type = 'S') {
-    float line_len = (point1 - point2).mag();
-    if (line_len == 0) {
-        return point1;
-    }
-    Point line_dir = (point2 - point1).unity();
-    Point point_vec = point - point1;
-    float dot_product = point_vec.scalar(line_dir);
-    // if (type == 'S') {
-    //     return 0;
+    // if(g != 2) {
+    //     printf("g %i, ",g,);
+    //     cout << "g " << g << ", " << start[0] << ", " <<  start[1] << ", " << end[0] << ", " << end[1] << ", " << args[4] << ", " << args[5] << endl;
+    //     testScore ++;
     // }
-    if (dot_product <= 0 && type != 'L') {
-        return point1;
-    }
-    if (dot_product >= line_len && type == 'S') {
-        return point2;
-    }
-    return line_dir * dot_product + point1;
-}
-
-__host__ __device__ Point nearest_point_on_poly(Point p, Point *poly, int ed_n) {
-    float min_ = -1, d;
-    Point ans(0, 0), pnt(0, 0);
-    for (int i = 0; i < ed_n; i++) {
-        pnt = closest_point_on_line(poly[i], poly[i > 0 ? i - 1 : ed_n - 1], p);
-        d = (pnt - p).mag();
-        if (d < min_ || min_ < 0) {
-            min_ = d;
-            ans = pnt;
-        }
-    }
-    return ans;
-}
-
-__host__ __device__ bool is_point_inside_poly(Point p, Point *points, int ed_n) {
-    float old_sign = sign((p - points[ed_n - 1]).vector(points[0] - points[ed_n - 1]));
-    for (int i = 0; i < ed_n - 1; i++) {
-        if (old_sign != sign((p - points[i]).vector(points[i + 1] - points[i]))) {
-            return false;
-        }  
-    }
-    return true;
-}
-
-__host__ __device__ Point find_nearest_robot(Point point, Point *team, int te_n) {
-    Point ans = Point(0, 0);
-    float min_dist = -1, dist;
-
-    if (te_n == 0) {
-        return Point(0, 0);
-    }
-    for (int i = 0; i < te_n; i++) {
-        dist = (team[i] - point).mag();
-        if (dist < min_dist || min_dist < 0) {
-            ans = team[i];
-            min_dist = dist;
-        }
-    }
-    return ans;
-}
-
-__host__ __device__ float estimate_pass_point(Point *enemies, int en_n, Point frm, Point to) {
-    float lerp = 0.0f;
-    float ang, ang1, ang2;
-    for (int i = 0; i < en_n; i++) {
-        float frm_enemy = (enemies[i] - frm).mag();
-        if (frm_enemy > ROBOT_R) {
-            if(frm_enemy <= (frm - to).mag()) {
-                Point tgs[2];
-                get_tangent_points(enemies[i], frm, ROBOT_R, tgs);
-                ang1 = get_angle_between_points(to, frm, tgs[0]);
-                ang2 = get_angle_between_points(to, frm, tgs[1]);
-                ang = fminf(fabsf(ang1), fabsf(ang2));
-                if (ang1 * ang2 < 0 && fabsf(ang1) < PI / 2 && fabsf(ang2) < PI / 2) {
-                    ang *= -1;
+    // cout << "stage 2 " << sqrt(Vm[0] * Vm[0] + Vm[1] * Vm[1]) << endl;
+    if(sqrt(Vm[0] * Vm[0] + Vm[1] * Vm[1]) > Vmax * 1.001) {
+        g = 0;
+        zero = atan2(Vm[1], Vm[0]);
+        angle[0] = zero;
+        g = newton(jac2, func2, args, angle, 1);
+        for(n = nst; g != 2 && n <= barrier; n *= mult) {
+            vmin = 2;
+            for(i = 0; i < n; i++) {
+                if(n == nst || i % mult != 0) {
+                    angle[0] = zero + 2 * M_PI * i / n;
+                    func2(angle, args, vnow);
+                    if(vnow[0] < vmin) {
+                        vmin = vnow[0];
+                        imin = i;
+                    }
                 }
             }
-            else {
-                ang = 2 * asinf(((enemies[i] - to).mag() / 2) / frm_enemy) - asinf(ROBOT_R / frm_enemy);
-            }
+            angle[0] = zero + 2 * M_PI * imin / n;
+            g = newton(jac2, func2, args, angle, 1);
         }
-
-        if (ang < OBSTACLE_ANGLE) {
-            lerp += powf(fabsf((OBSTACLE_ANGLE - ang) / OBSTACLE_ANGLE), 1.5);
-        }
-            
+        // cout << g << endl;
+        // if(g != 2) {
+        //     cout << "g2 " << g << ", " << start[0] << ", " << start[1] << ", " << end[0] << ", " << end[1] << ", " << r[0] << ", " << r[1] << endl;
+        //     testScore ++;
+        // }
+        
+        Vm[0] = cos(angle[0]) * Vmax;
+        Vm[1] = sin(angle[0]) * Vmax;
     }
-    return lerp;
+    res.x = Vm[0];
+    res.y = Vm[1];
+    // cout << "res" << Vm[0] << ", " << Vm[1] << endl;
+    return res;
 }
-
-__host__ __device__ float estimate_goal_view(Point point, Field fld) {
-    return fminf(fabsf(get_angle_between_points(fld.enemy_goal[0], point, fld.enemy_goal[1])/GOAL_VIEW_ANGLE), 1);
-}
-
-__host__ __device__ float estimate_dist_to_boarder(Point point, Field fld) {
-    float dist_to_goal_zone = (point - nearest_point_on_poly(point, fld.enemy_hull, 4)).mag();
-    if (is_point_inside_poly(point, fld.enemy_hull, 4)) {
-        dist_to_goal_zone *= -1;
-    }
-    
-    float dist_to_field_boarder = (point - nearest_point_on_poly(point, fld.hull, 4)).mag();
-
-    float dist_to_danger_zone = fminf(dist_to_goal_zone, dist_to_field_boarder);
-
-    return fmaxf(1 - dist_to_danger_zone / DANGER_ZONE_DIST, 0);
-}
-
-__host__ __device__ float estimate_dist_to_enemy(Point point, Point *active_enemies, int en_n) {
-
-    if (en_n == 0) {
-        return 0;
-    }
-    return fmaxf(1 - (find_nearest_robot(point, active_enemies, en_n) - point).mag() / DIST_TO_ENEMY, 0);
-}
-
-__host__ __device__ float estimate_shoot(Point point, Field fld, Point *enemies, int en_n) {
-    float lerp = 0.0f;
-    float ang, ang1, ang2;
-    float frm_enemy;
-    for (int i = 0; i < en_n; i++) {
-        frm_enemy = (point - enemies[i]).mag();
-        if (frm_enemy > ROBOT_R) {
-            ang1 = get_angle_between_points(fld.enemy_goal[0], point, enemies[i]);
-            ang2 = get_angle_between_points(fld.enemy_goal[1], point, enemies[i]);
-
-            ang = fminf(fabsf(ang1), fabsf(ang2));
-
-            if (ang < SHOOT_ANGLE) {
-                lerp += powf(fabsf((SHOOT_ANGLE - ang) / SHOOT_ANGLE), 1.5);
-            }
-        }
-    }
-    return lerp;
-}
-
-__host__ __device__ float estimate_point(Field fld, Point point, Point kick_point, Point *enemies, int en_n) {
-    return estimate_goal_view(point, fld) - estimate_pass_point(enemies, en_n, kick_point, point) - estimate_dist_to_boarder(point, fld) - 
-    estimate_shoot(point, fld, enemies, en_n) - estimate_dist_to_enemy(point, enemies, en_n);
-
-}
-__host__ __device__ float estimate_point_by_id(Field fld, Point kick_point, Point *enemies,int grid_dens, int en_n,int idx,int N)
+__host__ __device__ float estimate_time_for_speed(float speed,Point start_r,Point start_v,Point mid_r,Point mid_v,Point tgt_r,Point tgt_v,float max_acc,float max_speed)
 {
+    Point v_m1 = bangbang(start_v,mid_v,mid_r-start_r,max_acc,max_speed);
+    Point v_m2 = bangbang(mid_v,tgt_v,tgt_r-mid_r,max_acc,max_speed);
 
-    if(idx < N)
-    {
-        Point cur_pos(
-            grid_dens * (idx % int(FIELD_DX*2 / grid_dens))-FIELD_DX,
-            grid_dens * int(idx / int(FIELD_DX*2 / grid_dens))-FIELD_DY
-        );
-        return -estimate_point(fld,cur_pos,kick_point,enemies,en_n);
-    }
-    return 1e10f;
+    Point r1 = (v_m1 + start_v) * (v_m1 - start_v).mag() / (2 * max_acc);
+    Point r3 = (v_m1 + mid_v) * (v_m1 - mid_v).mag() / (2 * max_acc);
+    Point r2 = mid_r - start_r - r1 - r3;
+    double t1 = (v_m1 -start_v).mag() / max_acc + r2.mag() / max_speed + (mid_v - v_m1).mag() / max_acc;
+    r1 = (v_m2 + mid_v) * (v_m2 - mid_v).mag() / (2 * max_acc);
+    r3 = (v_m2 + tgt_v) * (v_m2 - tgt_v).mag() / (2 * max_acc);
+    r2 = tgt_r - mid_r - r1 - r3;
+    double t2 = (v_m2 -mid_v).mag() / max_acc + r2.mag() / max_speed + (tgt_v - v_m2).mag() / max_acc;
+    return t1+t2;
 }
-extern "C" __global__ void find_best_pass_point(Point *field_poses,int en_count, int grid_dens, float *out, int N)
+extern "C" __global__ void find_best_bb_speed(Point *speeds_n_poses,float *out,int N,float max_acc,float max_speed)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    Field fld = Field();
-    Point enemies[MAX_ENEMIES_COUNT];
-    for(int i = 0;i<MAX_ENEMIES_COUNT;i++)
-        enemies[i] = field_poses[i+1];
-    out[idx] = estimate_point_by_id(fld,field_poses[0],enemies,grid_dens,en_count,idx,N);
-
-    __syncthreads();
-    int tid = threadIdx.x;
-    __shared__ float sharedVals[256];
-    __shared__ int sharedIdx[256];
-    float val = (idx < N) ? estimate_point_by_id(fld,field_poses[0],enemies,grid_dens,en_count,idx,N) : 1e10f;
-    sharedVals[tid] = val;
-    sharedIdx[tid] = idx;
-    float curMin;
-    __syncthreads();
-    for (int offset = blockDim.x / 2; offset > 0; offset >>= 1) {
-        if (tid < offset) {
-            if (sharedVals[tid + offset] < sharedVals[tid]) {
-                sharedVals[tid] = sharedVals[tid + offset];
-                sharedIdx[tid] = sharedIdx[tid + offset];
-            }
-        }
-        __syncthreads();
-    }
-    if (tid == 0) {
-        out[blockIdx.x] = sharedVals[0];
-        out[blockIdx.x*2] = sharedIdx[0];
-        // printf("%i\n",idx);
-    }
-    // __syncthreads();
-    // float minVals[45];
-    // int minIds[45];
-    // if(blockIdx.x<=45 and tid == 0)
-    // {
-    //     float minV = 1e10f;
-    //     int minId = -1;
-    //     for(int i = 0;i<45;i++)
-    //     {
-    //         if(out[i+45*blockIdx.x]<minV)
-    //         {
-    //             minV = out[i+45*blockIdx.x];
-    //             minId = idx;
-    //         }
-    //     }   
-    //     printf("%i\n",minId);
-    //     minVals[blockIdx.x] = minV;
-    //     minIds[blockIdx.x] = minId;
-    // }
-
-
-    // Поток 0 блока 0 ищет глобальный минимум среди всех блоков
-    //TODO
-    /*
-    if (blockIdx.x == 0 && tid == 0) {
-        float globalMin = 1e10f;
-        for (int i = 0; i < 256; i++) {
-            globalMin = fminf(globalMin, out[i]);
-        }
-        out[0] = globalMin;
-    }
-    */
-
+    Point start_r = speeds_n_poses[0];
+    Point start_v = speeds_n_poses[1];
+    Point mid_r = speeds_n_poses[2];
+    Point mid_v = speeds_n_poses[3];
+    Point tgt_r = speeds_n_poses[4];
+    Point tgt_v = speeds_n_poses[5];
+    out[0] = 10;
+    
 }
